@@ -62,7 +62,37 @@ source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics
 
 当前阶段的 v1 **不在训练环境内部添加指标统计**。前期调试发现，即使是 evaluation-only 的 tensor 运算，只要放进 RL 环境的 `_get_rewards()` 或 `_reset_idx()`，也可能让训练轨迹发生变化，使结果不再和官方基线一致。因此后续指标统计应该放到单独的 evaluation 脚本中，而不是插入训练环境。
 
-### 3. 已废弃的旧实验任务
+### 3. WaypointV2 连续航点版本
+
+任务 ID：
+
+```bash
+Isaac-Quadcopter-WaypointV2-Direct-v0
+```
+
+代码位置：
+
+```bash
+source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint_v2/
+```
+
+用途：
+
+- 在官方目标范围内实现连续航点任务。
+- 当无人机进入当前目标半径后，不结束 episode，而是立即采样下一个目标点。
+- 保持官方 dense reward 结构不变，先验证“连续目标切换”本身是否可学。
+- 记录每个 episode 内完成的航点数：`Metrics/waypoint_count`。
+
+v2 当前参数：
+
+```text
+waypoint_reach_radius = 0.5 m
+goal x/y range = [-2.0, 2.0]
+goal z range = [0.5, 1.5]
+episode_length_s = 10.0
+```
+
+### 4. 已废弃的旧实验任务
 
 早期在 `quadrotor_waypoint/` 下实现过一个实验版本，包含扩大目标范围、环境内 success_rate / stable_hover_rate 指标等改动。该版本在排查问题时容易和官方复刻任务、v1 checkpoint 混淆，因此已经废弃。
 
@@ -86,8 +116,14 @@ source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics
                     ├── quadrotor_official_clone/
                     │   ├── __init__.py
                     │   └── quadrotor_official_clone_env.py
-                    └── quadrotor_v1_metrics/
+                    ├── quadrotor_v1_metrics/
+                    │   ├── __init__.py
+                    │   └── agents/
+                    │       ├── __init__.py
+                    │       └── rl_games_ppo_cfg.yaml
+                    └── quadrotor_waypoint_v2/
                         ├── __init__.py
+                        ├── quadrotor_waypoint_v2_env.py
                         └── agents/
                             ├── __init__.py
                             └── rl_games_ppo_cfg.yaml
@@ -144,6 +180,26 @@ python scripts/rl_games/train.py \
 logs/rl_games/quadcopter_waypoint_v1/<timestamp>/
 ```
 
+### 训练 WaypointV2
+
+v2 是连续航点版本。建议先保持 `num_envs=4096` 和官方目标范围，训练 200 轮观察 `Metrics/waypoint_count` 是否上升：
+
+```bash
+cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
+
+python scripts/rl_games/train.py \
+  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
+  --num_envs=4096 \
+  --headless \
+  --max_iterations=200
+```
+
+预期日志目录：
+
+```text
+logs/rl_games/quadcopter_waypoint_v2/<timestamp>/
+```
+
 ## 播放 checkpoint
 
 播放时一定要使用明确的 checkpoint 路径。不要在多个任务日志目录中使用 `find ... | sort | tail -n 1` 这类模糊方式，因为不同任务可能生成类似名称的 checkpoint，容易误加载。
@@ -172,6 +228,20 @@ CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v1.pth"
 
 python scripts/rl_games/play.py \
   --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
+  --num_envs=1 \
+  --checkpoint "$CKPT"
+```
+
+### 播放 WaypointV2
+
+```bash
+cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
+
+LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v2/2026-* | head -n 1)
+CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v2.pth"
+
+python scripts/rl_games/play.py \
+  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
   --num_envs=1 \
   --checkpoint "$CKPT"
 ```
@@ -247,6 +317,12 @@ tensorboard --logdir /home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games
 
 ```text
 logs/rl_games/quadcopter_waypoint_v1
+```
+
+连续航点 v2 重点看：
+
+```text
+logs/rl_games/quadcopter_waypoint_v2
 ```
 
 官方复刻基线重点看：
@@ -325,6 +401,6 @@ WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
 
 ## 后续计划
 
-1. 使用独立 evaluation 脚本对 OfficialClone 和 WaypointV1 的 checkpoint 做量化对比。
-2. 在稳定评估基础上实现连续航点：无人机到达一个目标点后，不结束 episode，而是采样下一个目标点。
-3. 在官方目标范围内稳定后，再逐步扩大目标范围，做 curriculum 训练。
+1. 使用独立 evaluation 脚本对 OfficialClone、WaypointV1 和 WaypointV2 的 checkpoint 做量化对比。
+2. 观察 WaypointV2 的 `Metrics/waypoint_count` 和 `Metrics/waypoint_success_rate`，确认连续航点是否稳定学会。
+3. 如果 v2 在官方目标范围内稳定，再逐步扩大目标范围，做 curriculum 训练。
