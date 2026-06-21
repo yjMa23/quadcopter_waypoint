@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Isaac Lab / rl_games outputs
+logs/
+outputs/
+*.pth
+*.pt
+*.onnx
+videos/
+
+# Isaac Sim generated/cache files
+*.usd
+*.usda
+*.usdc
+*.log
+
+# Local editor / OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Retired local experiments. They are intentionally not committed to avoid task/checkpoint confusion.
+source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint/
+source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics/quadrotor_v1_metrics_env.py
