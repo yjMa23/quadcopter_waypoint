@@ -176,6 +176,67 @@ python scripts/rl_games/play.py \
   --checkpoint "$CKPT"
 ```
 
+## 独立评估指标
+
+为了避免指标统计影响训练轨迹，当前项目把评估逻辑放在独立脚本中：
+
+```bash
+scripts/rl_games/eval_metrics.py
+```
+
+示例：评估最新 WaypointV1 checkpoint：
+
+```bash
+cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
+
+LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v1/2026-* | head -n 1)
+CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v1.pth"
+
+python scripts/rl_games/eval_metrics.py \
+  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
+  --checkpoint "$CKPT" \
+  --num_envs=64 \
+  --episodes=256 \
+  --headless
+```
+
+如果需要保存逐 episode 结果：
+
+```bash
+python scripts/rl_games/eval_metrics.py \
+  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
+  --checkpoint "$CKPT" \
+  --num_envs=64 \
+  --episodes=256 \
+  --csv "$LATEST_RUN/eval_metrics.csv" \
+  --headless
+```
+
+该脚本会输出：
+
+```text
+success_rate
+strict_success_rate
+stable_hover_rate
+final_stable_hover_rate
+termination_rate
+timeout_rate
+mean_final_distance
+mean_min_distance
+mean_final_lin_vel
+mean_final_ang_vel
+```
+
+默认阈值：
+
+```text
+success_radius = 0.5 m
+strict_success_radius = 0.2 m
+stable_radius = 0.3 m
+stable_lin_vel = 0.25 m/s
+stable_ang_vel = 0.8 rad/s
+```
+
 ## TensorBoard 查看
 
 ```bash
@@ -264,6 +325,6 @@ WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
 
 ## 后续计划
 
-1. 新增独立 evaluation 脚本，用于统计 success rate、final distance、final velocity、stable hover rate，不修改训练环境。
+1. 使用独立 evaluation 脚本对 OfficialClone 和 WaypointV1 的 checkpoint 做量化对比。
 2. 在稳定评估基础上实现连续航点：无人机到达一个目标点后，不结束 episode，而是采样下一个目标点。
 3. 在官方目标范围内稳定后，再逐步扩大目标范围，做 curriculum 训练。
