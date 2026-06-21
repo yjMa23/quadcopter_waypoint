@@ -1,34 +1,34 @@
 # Quadcopter Waypoint RL
 
-This repository is an **external Isaac Lab project** for reproducing and extending the official `Isaac-Quadcopter-Direct-v0` task. The current goal is to keep the training environment clean and reproducible before adding waypoint-style task changes.
+这是一个基于 **Isaac Lab External Project** 方式搭建的四旋翼强化学习项目，用于复现并扩展官方任务 `Isaac-Quadcopter-Direct-v0`。当前阶段的目标不是马上改复杂任务，而是先保证外部项目迁移后的训练环境足够干净、可复现，再在此基础上做航点任务扩展。
 
-The important conclusion from the migration/debugging process is:
+本轮迁移和调试得到的关键结论是：
 
-> The external project itself can reproduce the official quadcopter hover behavior. The main source of earlier unstable hovering was not reward design or metrics, but inconsistent training settings and checkpoint confusion, especially `num_envs=1024` versus the official-style `num_envs=4096`.
+> External project 本身可以稳定复现官方四旋翼悬停效果。前期出现“训练后到目标附近盘旋、不够稳”的主要原因不是 reward、指标统计或 External project 机制，而是训练设置和 checkpoint 使用不一致，尤其是 `num_envs=1024` 与官方风格的 `num_envs=4096` 带来的 PPO batch 结构差异。
 
-## Current task layout
+## 当前任务结构
 
-### 1. Official clone baseline
+### 1. OfficialClone 官方复刻基线
 
-Task ID:
+任务 ID：
 
 ```bash
 Isaac-Quadcopter-OfficialClone-Direct-v0
 ```
 
-Location:
+代码位置：
 
 ```bash
 source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_official_clone/
 ```
 
-Purpose:
+用途：
 
-- Exactly clone the official Isaac Lab quadcopter direct environment logic.
-- Only rename the Python classes and Gym task ID so it can live in this external project.
-- Keep this task as the clean baseline for all future changes.
+- 完整复刻 Isaac Lab 官方 `Isaac-Quadcopter-Direct-v0` 的环境逻辑。
+- 只修改 Python 类名和 Gym 任务 ID，使其可以作为 external project 中的独立任务存在。
+- 后续所有改动都应以这个任务作为干净基线。
 
-The cloned logic keeps the official settings:
+该任务保留官方设定：
 
 ```text
 episode_length_s = 10.0
@@ -37,38 +37,38 @@ scene.env_spacing = 2.5
 goal x/y range = [-2.0, 2.0]
 goal z range = [0.5, 1.5]
 height termination = z < 0.1 or z > 2.0
-reward = lin_vel penalty + ang_vel penalty + distance_to_goal reward
+reward = 线速度惩罚 + 角速度惩罚 + 目标距离奖励
 ```
 
-### 2. Waypoint v1
+### 2. WaypointV1 稳定起点版本
 
-Task ID:
+任务 ID：
 
 ```bash
 Isaac-Quadcopter-WaypointV1-Direct-v0
 ```
 
-Location:
+代码位置：
 
 ```bash
 source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics/
 ```
 
-Purpose:
+用途：
 
-- Use the same clean `OfficialClone` training environment.
-- Use a separate rl_games experiment name: `quadcopter_waypoint_v1`.
-- Avoid mixing v1 checkpoints with the official `quadcopter_direct` checkpoints.
+- 训练环境继续复用干净的 `OfficialClone`。
+- 使用独立的 rl_games 实验名：`quadcopter_waypoint_v1`。
+- 避免 v1 checkpoint 与官方 `quadcopter_direct` checkpoint 混在同一个目录里。
 
-At this stage, v1 intentionally does **not** add metrics inside the training environment. Earlier attempts showed that even evaluation-only tensor operations inside the RL environment can change training trajectories. Metrics should be collected later with a separate evaluation script instead of being inserted into the training step.
+当前阶段的 v1 **不在训练环境内部添加指标统计**。前期调试发现，即使是 evaluation-only 的 tensor 运算，只要放进 RL 环境的 `_get_rewards()` 或 `_reset_idx()`，也可能让训练轨迹发生变化，使结果不再和官方基线一致。因此后续指标统计应该放到单独的 evaluation 脚本中，而不是插入训练环境。
 
-### 3. Retired experimental waypoint task
+### 3. 已废弃的旧实验任务
 
-An earlier experimental task under `quadrotor_waypoint/` expanded the target range and added in-environment metrics. It was retired because it made the debugging process confusing and could easily be mixed with official-clone checkpoints.
+早期在 `quadrotor_waypoint/` 下实现过一个实验版本，包含扩大目标范围、环境内 success_rate / stable_hover_rate 指标等改动。该版本在排查问题时容易和官方复刻任务、v1 checkpoint 混淆，因此已经废弃。
 
-The retired local experiment is ignored by `.gitignore` and should not be used as a base for future work.
+旧实验目录已加入 `.gitignore`，不应作为后续开发基础。
 
-## Repository structure
+## 仓库结构
 
 ```text
 .
@@ -93,26 +93,26 @@ The retired local experiment is ignored by `.gitignore` and should not be used a
                             └── rl_games_ppo_cfg.yaml
 ```
 
-## Setup
+## 环境准备
 
-Activate the Isaac Lab environment first:
+先激活 Isaac Lab 环境：
 
 ```bash
 conda activate env_isaaclab
 ```
 
-Install this external project in editable mode:
+进入项目根目录，并以 editable 模式安装 external project：
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
 python -m pip install -e source/quadcopter_waypoint
 ```
 
-## Training commands
+## 训练命令
 
-### Official clone baseline
+### 训练 OfficialClone 基线
 
-Use this to verify that the external project reproduces the official hover task:
+用于确认 external project 是否能复现官方悬停任务：
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -124,9 +124,9 @@ python scripts/rl_games/train.py \
   --max_iterations=200
 ```
 
-### Waypoint v1
+### 训练 WaypointV1
 
-Use this as the stable v1 starting point with a separate log directory:
+这是当前稳定 v1 起点，使用独立日志目录：
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -138,17 +138,17 @@ python scripts/rl_games/train.py \
   --max_iterations=200
 ```
 
-Expected log directory:
+预期日志目录：
 
 ```text
 logs/rl_games/quadcopter_waypoint_v1/<timestamp>/
 ```
 
-## Playing checkpoints
+## 播放 checkpoint
 
-Always use an explicit checkpoint path. Avoid `find ... | sort | tail -n 1` across multiple task logs, because different tasks may produce similarly named checkpoint files.
+播放时一定要使用明确的 checkpoint 路径。不要在多个任务日志目录中使用 `find ... | sort | tail -n 1` 这类模糊方式，因为不同任务可能生成类似名称的 checkpoint，容易误加载。
 
-### Play OfficialClone
+### 播放 OfficialClone
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -162,7 +162,7 @@ python scripts/rl_games/play.py \
   --checkpoint "$CKPT"
 ```
 
-### Play WaypointV1
+### 播放 WaypointV1
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -176,86 +176,94 @@ python scripts/rl_games/play.py \
   --checkpoint "$CKPT"
 ```
 
-## TensorBoard
+## TensorBoard 查看
 
 ```bash
 tensorboard --logdir /home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games
 ```
 
-For the stable v1 run, check:
+稳定 v1 重点看：
 
 ```text
 logs/rl_games/quadcopter_waypoint_v1
 ```
 
-For the official clone run, check:
+官方复刻基线重点看：
 
 ```text
 logs/rl_games/quadcopter_direct
 ```
 
-## Important debugging notes
+## 关键调试记录
 
-### 1. Keep `num_envs=4096` for this PPO config
+### 1. 当前 PPO 配置下建议固定 `num_envs=4096`
 
-The official PPO config uses:
+官方 PPO 配置中：
 
 ```yaml
 horizon_length: 24
 minibatch_size: 24576
 ```
 
-With `num_envs=1024`:
+当 `num_envs=1024` 时：
 
 ```text
 batch size = 24 * 1024 = 24576
 ```
 
-This gives only one minibatch per PPO update and produced worse hovering behavior in testing.
+此时每次 PPO update 只有 1 个 minibatch。实际测试中，这个设置训练出的策略容易出现到目标附近盘旋、不够稳的现象。
 
-With `num_envs=4096`:
+当 `num_envs=4096` 时：
 
 ```text
 batch size = 24 * 4096 = 98304
 ```
 
-This gives four minibatches per PPO update and reproduced the official stable hover behavior.
+此时每次 PPO update 可以分成 4 个 minibatch，复现了官方稳定悬停效果。
 
-If `num_envs` must be reduced for GPU memory reasons, also retune `minibatch_size`, `horizon_length`, `mini_epochs`, and possibly `learning_rate`. Do not only change `num_envs`.
+如果后续因为显存限制必须降低 `num_envs`，不能只改 `num_envs`，还需要同步调整：
 
-### 2. Do not mix task IDs and checkpoints
+```text
+minibatch_size
+horizon_length
+mini_epochs
+learning_rate
+```
 
-A common mistake is training one task but playing another task with its checkpoint. Always pair them explicitly:
+### 2. 不要混用 task 和 checkpoint
+
+调试过程中出现过“训练其实没问题，但播放效果不对”的情况，原因是不同任务共享或混用了 checkpoint 目录。后续必须显式匹配：
 
 ```text
 OfficialClone task  + quadcopter_direct checkpoint
 WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
 ```
 
-### 3. Keep metrics out of the training environment
+### 3. 训练环境保持干净，指标单独评估
 
-During debugging, adding success-rate or stable-hover metrics inside `_get_rewards()` or `_reset_idx()` caused confusing differences in training behavior. The current strategy is:
+调试中尝试过在训练环境里加入 `success_rate`、`stable_hover_rate`、`final_lin_vel` 等指标统计。虽然这些指标理论上不直接修改 reward、obs 或 done，但在 GPU 并行 RL 训练中，额外 tensor 运算和状态写入仍可能改变训练轨迹。
+
+当前策略是：
 
 ```text
-training environment: clean and identical to OfficialClone
-evaluation metrics: compute in a separate evaluation script later
+训练环境：保持和 OfficialClone 一致
+评估指标：后续单独写 evaluation 脚本统计
 ```
 
-This keeps RL training reproducible.
+这样更利于复现实验结果。
 
-## Migration process summary
+## 迁移过程总结
 
-1. Created an external Isaac Lab project instead of modifying the Isaac Lab source tree.
-2. Added wrapper scripts under `scripts/rl_games/` that inject this external task package into the official Isaac Lab training/play scripts while preserving Isaac Sim launch order.
-3. First attempted a waypoint task with enlarged target range and in-environment metrics.
-4. Observed unstable hovering and checkpoint/log confusion.
-5. Built `OfficialClone` to exactly reproduce `Isaac-Quadcopter-Direct-v0` inside the external project.
-6. Verified that fixed checkpoint paths and `num_envs=4096` reproduce stable hover behavior.
-7. Retired the earlier experimental waypoint task.
-8. Added `WaypointV1` as a clean v1 task with a separate experiment name while reusing the official-clone training environment.
+1. 采用 Isaac Lab external project 方式，而不是直接修改 Isaac Lab 官方源码。
+2. 新增 `scripts/rl_games/train.py` 和 `scripts/rl_games/play.py` wrapper，在不破坏 Isaac Sim 启动顺序的前提下注入 external task 注册。
+3. 早期尝试了扩大目标范围和环境内指标统计，但训练效果出现盘旋，且日志/checkpoint 容易混乱。
+4. 新建 `OfficialClone`，完全复刻官方 `Isaac-Quadcopter-Direct-v0` 环境逻辑。
+5. 通过固定 checkpoint 路径和 `num_envs=4096`，确认 external project 可以复现官方稳定悬停效果。
+6. 废弃旧实验任务，避免后续继续在不稳定版本上叠加修改。
+7. 新建 `WaypointV1`，训练环境仍复用 `OfficialClone`，但使用独立实验名 `quadcopter_waypoint_v1`，避免 checkpoint 混用。
 
-## Next planned steps
+## 后续计划
 
-1. Add a standalone evaluation script to compute success rate, final distance, final velocity, and stable hover rate without modifying the training environment.
-2. After evaluation is stable, add waypoint progression: when the drone reaches one target, sample the next target without ending the episode.
-3. Add curriculum for larger target ranges only after the official-range waypoint behavior is stable.
+1. 新增独立 evaluation 脚本，用于统计 success rate、final distance、final velocity、stable hover rate，不修改训练环境。
+2. 在稳定评估基础上实现连续航点：无人机到达一个目标点后，不结束 episode，而是采样下一个目标点。
+3. 在官方目标范围内稳定后，再逐步扩大目标范围，做 curriculum 训练。
