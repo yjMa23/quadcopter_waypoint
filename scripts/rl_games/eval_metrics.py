@@ -1,10 +1,10 @@
 # Copyright (c) 2022-2026, The Isaac Lab Project Developers.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Evaluate an rl_games quadcopter checkpoint without modifying the training environment.
+"""Evaluate fixed-target and continuous-waypoint rl_games quadcopter checkpoints.
 
-This script is intentionally separate from the training environment. It computes success and hover metrics from
-observations/state during play, so evaluation does not affect PPO training trajectories.
+Fixed-target tasks use state-derived hover metrics. Continuous-waypoint tasks consume exact one-step reach events
+published by the environment, so waypoint switches cannot hide successful arrivals from the evaluator.
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -141,16 +141,25 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     obs = env.reset()
     if isinstance(obs, dict):
         obs = obs["obs"]
+    # Training staggers the initial episode counters to smooth reset spikes. Evaluation needs complete episodes.
+    task_env.episode_length_buf.zero_()
     _ = agent.get_batch_size(obs, 1)
     if agent.is_rnn:
         agent.init_rnn()
 
     num_envs = task_env.num_envs
     device = task_env.device
+    continuous_waypoint = all(
+        hasattr(task_env, name)
+        for name in ("_waypoint_reached", "_waypoint_reach_distance", "_waypoint_reach_lin_vel")
+    )
     episode_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_strict_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_stable_hover = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_min_distance = torch.full((num_envs,), float("inf"), dtype=torch.float, device=device)
+    episode_waypoint_count = torch.zeros(num_envs, dtype=torch.long, device=device)
+    episode_waypoint_reach_distance_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_waypoint_reach_lin_vel_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
 
     completed: list[dict[str, float | bool | int]] = []
     step = 0
@@ -163,18 +172,29 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             lin_vel = torch.linalg.norm(task_env._robot.data.root_lin_vel_b, dim=1)
             ang_vel = torch.linalg.norm(task_env._robot.data.root_ang_vel_b, dim=1)
 
-            episode_success |= distance_to_goal < args_cli.success_radius
-            episode_strict_success |= distance_to_goal < args_cli.strict_success_radius
             episode_min_distance = torch.minimum(episode_min_distance, distance_to_goal)
             stable_hover = torch.logical_and(
                 distance_to_goal < args_cli.stable_radius,
                 torch.logical_and(lin_vel < args_cli.stable_lin_vel, ang_vel < args_cli.stable_ang_vel),
             )
-            episode_stable_hover |= stable_hover
+            if not continuous_waypoint:
+                episode_success |= distance_to_goal < args_cli.success_radius
+                episode_strict_success |= distance_to_goal < args_cli.strict_success_radius
+                episode_stable_hover |= stable_hover
 
             obs = agent.obs_to_torch(obs)
             actions = agent.get_action(obs, is_deterministic=agent.is_deterministic)
             obs, _, dones, _ = env.step(actions)
+
+            if continuous_waypoint:
+                waypoint_reached = task_env._waypoint_reached
+                episode_waypoint_count += waypoint_reached.long()
+                episode_waypoint_reach_distance_sum += task_env._waypoint_reach_distance
+                episode_waypoint_reach_lin_vel_sum += task_env._waypoint_reach_lin_vel
+                episode_success |= waypoint_reached
+                episode_strict_success |= torch.logical_and(
+                    waypoint_reached, task_env._waypoint_reach_distance < args_cli.strict_success_radius
+                )
 
             dones_tensor = torch.as_tensor(dones, dtype=torch.bool, device=device)
             done_ids = torch.nonzero(dones_tensor, as_tuple=False).squeeze(-1)
@@ -187,6 +207,20 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 strict_successes = episode_strict_success[done_ids].detach().cpu().tolist()
                 stable_hovers = episode_stable_hover[done_ids].detach().cpu().tolist()
                 final_stables = stable_hover[done_ids].detach().cpu().tolist()
+                waypoint_counts = episode_waypoint_count[done_ids]
+                mean_waypoint_reach_distances = torch.where(
+                    waypoint_counts > 0,
+                    episode_waypoint_reach_distance_sum[done_ids] / waypoint_counts.clamp_min(1),
+                    torch.zeros_like(episode_waypoint_reach_distance_sum[done_ids]),
+                )
+                mean_waypoint_reach_lin_vels = torch.where(
+                    waypoint_counts > 0,
+                    episode_waypoint_reach_lin_vel_sum[done_ids] / waypoint_counts.clamp_min(1),
+                    torch.zeros_like(episode_waypoint_reach_lin_vel_sum[done_ids]),
+                )
+                waypoint_counts_list = waypoint_counts.detach().cpu().tolist()
+                mean_waypoint_reach_distances_list = _tensor_to_float_list(mean_waypoint_reach_distances)
+                mean_waypoint_reach_lin_vels_list = _tensor_to_float_list(mean_waypoint_reach_lin_vels)
                 terminated = task_env.reset_terminated[done_ids].detach().cpu().tolist()
                 timed_out = task_env.reset_time_outs[done_ids].detach().cpu().tolist()
 
@@ -205,6 +239,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                             "strict_success": bool(strict_successes[local_idx]),
                             "stable_hover": bool(stable_hovers[local_idx]),
                             "final_stable_hover": bool(final_stables[local_idx]),
+                            "waypoint_count": int(waypoint_counts_list[local_idx]),
+                            "mean_waypoint_reach_distance": mean_waypoint_reach_distances_list[local_idx],
+                            "mean_waypoint_reach_lin_vel": mean_waypoint_reach_lin_vels_list[local_idx],
                             "terminated": bool(terminated[local_idx]),
                             "time_out": bool(timed_out[local_idx]),
                         }
@@ -214,6 +251,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 episode_strict_success[done_ids] = False
                 episode_stable_hover[done_ids] = False
                 episode_min_distance[done_ids] = float("inf")
+                episode_waypoint_count[done_ids] = 0
+                episode_waypoint_reach_distance_sum[done_ids] = 0.0
+                episode_waypoint_reach_lin_vel_sum[done_ids] = 0.0
 
                 if agent.is_rnn and agent.states is not None:
                     for state in agent.states:
@@ -233,22 +273,34 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     def rate(key: str) -> float:
         return sum(1.0 for ep in completed if bool(ep[key])) / len(completed)
 
+    def waypoint_event_mean(key: str) -> float:
+        waypoint_count = sum(int(ep["waypoint_count"]) for ep in completed)
+        if waypoint_count == 0:
+            return float("nan")
+        return sum(float(ep[key]) * int(ep["waypoint_count"]) for ep in completed) / waypoint_count
+
     print("\n========== Evaluation Summary ==========")
     print(f"task: {args_cli.task}")
     print(f"checkpoint: {resume_path}")
     print(f"episodes: {len(completed)}")
     print(f"num_envs: {num_envs}")
     print(f"steps: {step}")
-    print(f"success_rate@{args_cli.success_radius:.2f}m: {rate('success'):.4f}")
-    print(f"strict_success_rate@{args_cli.strict_success_radius:.2f}m: {rate('strict_success'):.4f}")
-    print(f"stable_hover_rate: {rate('stable_hover'):.4f}")
-    print(f"final_stable_hover_rate: {rate('final_stable_hover'):.4f}")
+    if continuous_waypoint:
+        print(f"waypoint_episode_success_rate: {rate('success'):.4f}")
+        print(f"mean_waypoints_per_episode: {mean('waypoint_count'):.4f}")
+        print(f"mean_waypoint_reach_distance: {waypoint_event_mean('mean_waypoint_reach_distance'):.4f} m")
+        print(f"mean_waypoint_reach_lin_vel: {waypoint_event_mean('mean_waypoint_reach_lin_vel'):.4f} m/s")
+    else:
+        print(f"success_rate@{args_cli.success_radius:.2f}m: {rate('success'):.4f}")
+        print(f"strict_success_rate@{args_cli.strict_success_radius:.2f}m: {rate('strict_success'):.4f}")
+        print(f"stable_hover_rate: {rate('stable_hover'):.4f}")
+        print(f"final_stable_hover_rate: {rate('final_stable_hover'):.4f}")
+        print(f"mean_final_distance: {mean('final_distance'):.4f} m")
+        print(f"mean_min_distance: {mean('min_distance'):.4f} m")
+        print(f"mean_final_lin_vel: {mean('final_lin_vel'):.4f} m/s")
+        print(f"mean_final_ang_vel: {mean('final_ang_vel'):.4f} rad/s")
     print(f"termination_rate: {rate('terminated'):.4f}")
     print(f"timeout_rate: {rate('time_out'):.4f}")
-    print(f"mean_final_distance: {mean('final_distance'):.4f} m")
-    print(f"mean_min_distance: {mean('min_distance'):.4f} m")
-    print(f"mean_final_lin_vel: {mean('final_lin_vel'):.4f} m/s")
-    print(f"mean_final_ang_vel: {mean('final_ang_vel'):.4f} rad/s")
 
     if args_cli.csv is not None:
         csv_path = Path(args_cli.csv).expanduser().resolve()

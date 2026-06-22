@@ -80,13 +80,17 @@ class QuadcopterWaypointV2EnvCfg(DirectRLEnvCfg):
     thrust_to_weight = 1.9
     moment_scale = 0.01
 
-    # reward scales: keep official dense hover reward
+    # reward scales
     lin_vel_reward_scale = -0.05
     ang_vel_reward_scale = -0.01
-    distance_to_goal_reward_scale = 15.0
+    progress_reward_scale = 10.0
+    waypoint_completion_reward = 10.0
 
-    # waypoint switching: keep official target distribution for v2
-    waypoint_reach_radius = 0.5
+    # waypoint switching and sampling
+    waypoint_reach_radius = 0.15
+    waypoint_reach_lin_vel = 0.25
+    waypoint_segment_length_min = 0.75
+    waypoint_segment_length_max = 2.0
     goal_xy_range = 2.0
     goal_z_min = 0.5
     goal_z_max = 1.5
@@ -104,8 +108,15 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
         # Goal position
         self._desired_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._previous_distance_to_goal = torch.zeros(self.num_envs, device=self.device)
         # Number of reached waypoints in each episode
         self._waypoint_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._waypoint_reach_distance_sum = torch.zeros(self.num_envs, device=self.device)
+        self._waypoint_reach_lin_vel_sum = torch.zeros(self.num_envs, device=self.device)
+        # Per-step waypoint events consumed by the standalone evaluator.
+        self._waypoint_reached = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._waypoint_reach_distance = torch.zeros(self.num_envs, device=self.device)
+        self._waypoint_reach_lin_vel = torch.zeros(self.num_envs, device=self.device)
 
         # Logging
         self._episode_sums = {
@@ -113,7 +124,8 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
             for key in [
                 "lin_vel",
                 "ang_vel",
-                "distance_to_goal",
+                "progress_to_goal",
+                "waypoint_completion",
             ]
         }
         # Get specific body indices
@@ -141,15 +153,47 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
-    def _sample_goals(self, env_ids: torch.Tensor):
-        """Sample new waypoint goals for the selected environments."""
-        self._desired_pos_w[env_ids, :2] = torch.zeros_like(self._desired_pos_w[env_ids, :2]).uniform_(
-            -self.cfg.goal_xy_range, self.cfg.goal_xy_range
-        )
-        self._desired_pos_w[env_ids, :2] += self._terrain.env_origins[env_ids, :2]
-        self._desired_pos_w[env_ids, 2] = torch.zeros_like(self._desired_pos_w[env_ids, 2]).uniform_(
-            self.cfg.goal_z_min, self.cfg.goal_z_max
-        )
+    def _sample_goals(self, env_ids: torch.Tensor, reference_pos_w: torch.Tensor):
+        """Sample bounded waypoint goals at a controlled distance from a reference position."""
+        if env_ids.numel() == 0:
+            return
+
+        env_origins = self._terrain.env_origins[env_ids]
+        goals = torch.empty_like(reference_pos_w)
+        pending = torch.ones(env_ids.numel(), dtype=torch.bool, device=self.device)
+
+        # Rejection sampling preserves both the workspace bounds and the requested 3-D segment length.
+        for _ in range(32):
+            pending_ids = torch.nonzero(pending, as_tuple=False).squeeze(-1)
+            if pending_ids.numel() == 0:
+                break
+
+            candidates = torch.empty((pending_ids.numel(), 3), device=self.device)
+            candidates[:, :2].uniform_(-self.cfg.goal_xy_range, self.cfg.goal_xy_range)
+            candidates[:, :2] += env_origins[pending_ids, :2]
+            candidates[:, 2].uniform_(self.cfg.goal_z_min, self.cfg.goal_z_max)
+            segment_length = torch.linalg.norm(candidates - reference_pos_w[pending_ids], dim=1)
+            valid = torch.logical_and(
+                segment_length >= self.cfg.waypoint_segment_length_min,
+                segment_length <= self.cfg.waypoint_segment_length_max,
+            )
+            valid_ids = pending_ids[valid]
+            goals[valid_ids] = candidates[valid]
+            pending[valid_ids] = False
+
+        # Deterministic fallback: move the minimum segment length horizontally toward the workspace center.
+        pending_ids = torch.nonzero(pending, as_tuple=False).squeeze(-1)
+        if pending_ids.numel() > 0:
+            horizontal_to_center = env_origins[pending_ids, :2] - reference_pos_w[pending_ids, :2]
+            horizontal_norm = torch.linalg.norm(horizontal_to_center, dim=1, keepdim=True)
+            fallback_direction = horizontal_to_center / horizontal_norm.clamp_min(1.0e-6)
+            center_mask = horizontal_norm.squeeze(-1) < 1.0e-6
+            fallback_direction[center_mask] = torch.tensor([1.0, 0.0], device=self.device)
+            goals[pending_ids] = reference_pos_w[pending_ids]
+            goals[pending_ids, :2] += fallback_direction * self.cfg.waypoint_segment_length_min
+            goals[pending_ids, 2].clamp_(self.cfg.goal_z_min, self.cfg.goal_z_max)
+
+        self._desired_pos_w[env_ids] = goals
 
     def _pre_physics_step(self, actions: torch.Tensor):
         self._actions = actions.clone().clamp(-1.0, 1.0)
@@ -179,26 +223,48 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         lin_vel = torch.sum(torch.square(self._robot.data.root_lin_vel_b), dim=1)
+        lin_vel_norm = torch.sqrt(lin_vel)
         ang_vel = torch.sum(torch.square(self._robot.data.root_ang_vel_b), dim=1)
         distance_to_goal = torch.linalg.norm(self._desired_pos_w - self._robot.data.root_pos_w, dim=1)
-        distance_to_goal_mapped = 1 - torch.tanh(distance_to_goal / 0.8)
+        progress_to_goal = self._previous_distance_to_goal - distance_to_goal
+
+        # A waypoint is complete only when the vehicle enters it slowly. Terminal steps never switch waypoints.
+        reached = torch.logical_and(
+            distance_to_goal < self.cfg.waypoint_reach_radius,
+            lin_vel_norm < self.cfg.waypoint_reach_lin_vel,
+        )
+        reached = torch.logical_and(reached, torch.logical_not(self.reset_buf))
+
         rewards = {
             "lin_vel": lin_vel * self.cfg.lin_vel_reward_scale * self.step_dt,
             "ang_vel": ang_vel * self.cfg.ang_vel_reward_scale * self.step_dt,
-            "distance_to_goal": distance_to_goal_mapped * self.cfg.distance_to_goal_reward_scale * self.step_dt,
+            "progress_to_goal": progress_to_goal * self.cfg.progress_reward_scale,
+            "waypoint_completion": reached.float() * self.cfg.waypoint_completion_reward,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging
         for key, value in rewards.items():
             self._episode_sums[key] += value
 
-        # Continuous waypoint logic: if the robot reaches the current goal, sample the next goal without resetting
-        # the episode. Do this after reward computation so the current step still receives reward for the reached goal.
-        reached = torch.logical_and(distance_to_goal < self.cfg.waypoint_reach_radius, torch.logical_not(self.reset_buf))
+        # Publish exact one-step events for evaluation and accumulate per-episode reach quality.
+        self._waypoint_reached.copy_(reached)
+        self._waypoint_reach_distance.zero_()
+        self._waypoint_reach_lin_vel.zero_()
+        self._waypoint_reach_distance[reached] = distance_to_goal[reached]
+        self._waypoint_reach_lin_vel[reached] = lin_vel_norm[reached]
+
+        # Use the current distance as the next progress baseline unless a new waypoint is sampled below.
+        self._previous_distance_to_goal.copy_(distance_to_goal)
         reached_env_ids = torch.nonzero(reached, as_tuple=False).squeeze(-1)
         if reached_env_ids.numel() > 0:
             self._waypoint_count[reached_env_ids] += 1
-            self._sample_goals(reached_env_ids)
+            self._waypoint_reach_distance_sum[reached_env_ids] += distance_to_goal[reached_env_ids]
+            self._waypoint_reach_lin_vel_sum[reached_env_ids] += lin_vel_norm[reached_env_ids]
+            previous_goals = self._desired_pos_w[reached_env_ids].clone()
+            self._sample_goals(reached_env_ids, previous_goals)
+            self._previous_distance_to_goal[reached_env_ids] = torch.linalg.norm(
+                self._desired_pos_w[reached_env_ids] - self._robot.data.root_pos_w[reached_env_ids], dim=1
+            )
 
         return reward
 
@@ -217,6 +283,17 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
         ).mean()
         waypoint_count = self._waypoint_count[env_ids].float().mean()
         waypoint_success_rate = (self._waypoint_count[env_ids] > 0).float().mean()
+        reached_waypoint_count = self._waypoint_count[env_ids].sum()
+        if reached_waypoint_count > 0:
+            mean_waypoint_reach_distance = (
+                self._waypoint_reach_distance_sum[env_ids].sum() / reached_waypoint_count
+            )
+            mean_waypoint_reach_lin_vel = (
+                self._waypoint_reach_lin_vel_sum[env_ids].sum() / reached_waypoint_count
+            )
+        else:
+            mean_waypoint_reach_distance = torch.tensor(0.0, device=self.device)
+            mean_waypoint_reach_lin_vel = torch.tensor(0.0, device=self.device)
         extras = dict()
         for key in self._episode_sums.keys():
             episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
@@ -230,8 +307,12 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
         extras["Metrics/final_distance_to_goal"] = final_distance_to_goal.item()
         extras["Metrics/waypoint_count"] = waypoint_count.item()
         extras["Metrics/waypoint_success_rate"] = waypoint_success_rate.item()
+        extras["Metrics/mean_waypoint_reach_distance"] = mean_waypoint_reach_distance.item()
+        extras["Metrics/mean_waypoint_reach_lin_vel"] = mean_waypoint_reach_lin_vel.item()
         self.extras["log"].update(extras)
         self._waypoint_count[env_ids] = 0
+        self._waypoint_reach_distance_sum[env_ids] = 0.0
+        self._waypoint_reach_lin_vel_sum[env_ids] = 0.0
 
         self._robot.reset(env_ids)
         super()._reset_idx(env_ids)
@@ -240,13 +321,19 @@ class QuadcopterWaypointV2Env(DirectRLEnv):
             self.episode_length_buf = torch.randint_like(self.episode_length_buf, high=int(self.max_episode_length))
 
         self._actions[env_ids] = 0.0
-        # Sample new commands
-        self._sample_goals(env_ids)
         # Reset robot state
         joint_pos = self._robot.data.default_joint_pos[env_ids]
         joint_vel = self._robot.data.default_joint_vel[env_ids]
         default_root_state = self._robot.data.default_root_state[env_ids]
         default_root_state[:, :3] += self._terrain.env_origins[env_ids]
+        # Sample a first bounded waypoint from the reset pose and initialize progress without a reward spike.
+        self._sample_goals(env_ids, default_root_state[:, :3])
+        self._previous_distance_to_goal[env_ids] = torch.linalg.norm(
+            self._desired_pos_w[env_ids] - default_root_state[:, :3], dim=1
+        )
+        self._waypoint_reached[env_ids] = False
+        self._waypoint_reach_distance[env_ids] = 0.0
+        self._waypoint_reach_lin_vel[env_ids] = 0.0
         self._robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
         self._robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
         self._robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)

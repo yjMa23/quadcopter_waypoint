@@ -4,7 +4,7 @@
 
 本轮迁移和调试得到的关键结论是：
 
-> External project 本身可以稳定复现官方四旋翼悬停效果。前期出现“训练后到目标附近盘旋、不够稳”的主要原因不是 reward、指标统计或 External project 机制，而是训练设置和 checkpoint 使用不一致，尤其是 `num_envs=1024` 与官方风格的 `num_envs=4096` 带来的 PPO batch 结构差异。
+> External project 本身可以稳定复现官方四旋翼悬停效果。固定目标任务曾因训练设置和 checkpoint 使用不一致出现盘旋；连续航点 v2 则进一步发现了奖励错位：旧策略会停在 `0.5 m` 成功半径外持续获取距离奖励，而完成航点后反而损失奖励。当前 v2 已改用距离进展和航点完成奖励。
 
 ## 当前任务结构
 
@@ -78,19 +78,25 @@ source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint_v
 
 用途：
 
-- 在官方目标范围内实现连续航点任务。
-- 当无人机进入当前目标半径后，不结束 episode，而是立即采样下一个目标点。
-- 保持官方 dense reward 结构不变，先验证“连续目标切换”本身是否可学。
-- 记录每个 episode 内完成的航点数：`Metrics/waypoint_count`。
+- 在官方目标工作空间内实现连续航点任务。
+- 当无人机以低速精确进入当前目标后，不结束 episode，而是立即采样下一个目标点。
+- 使用“距离进展 + 航点完成”奖励，避免策略停在成功半径外刷分。
+- 约束相邻航点的三维航段长度，并记录航点数、真实到点距离和到点速度。
 
 v2 当前参数：
 
 ```text
-waypoint_reach_radius = 0.5 m
+waypoint_reach_radius = 0.15 m
+waypoint_reach_lin_vel = 0.25 m/s
+waypoint_segment_length = [0.75, 2.0] m
 goal x/y range = [-2.0, 2.0]
 goal z range = [0.5, 1.5]
 episode_length_s = 10.0
+progress_reward_scale = 10.0
+waypoint_completion_reward = 10.0
 ```
+
+v2 的观测和动作维度保持不变，但奖励和航点切换语义已经改变。旧 v2 checkpoint 不应作为新任务的训练结果使用，修改后必须从头训练。
 
 ### 4. 已废弃的旧实验任务
 
@@ -182,7 +188,7 @@ logs/rl_games/quadcopter_waypoint_v1/<timestamp>/
 
 ### 训练 WaypointV2
 
-v2 是连续航点版本。建议先保持 `num_envs=4096` 和官方目标范围，训练 200 轮观察 `Metrics/waypoint_count` 是否上升：
+v2 是低速精确穿点的连续航点版本。保持 `num_envs=4096`，从头训练 200 轮：
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -199,6 +205,20 @@ python scripts/rl_games/train.py \
 ```text
 logs/rl_games/quadcopter_waypoint_v2/<timestamp>/
 ```
+
+### WaypointV2 已验证结果
+
+当前实现已经使用 `seed=42`、`num_envs=4096` 完成 200 epochs 从头训练，并对最佳 checkpoint 使用 64 个并行环境评估了 256 个完整 episode：
+
+| 指标 | 结果 |
+| --- | ---: |
+| 航点 episode 成功率 | 98.05% |
+| 平均每回合航点数 | 8.96 |
+| 平均到点距离 | 0.1391 m |
+| 平均到点线速度 | 0.2155 m/s |
+| 终止率 | 0% |
+
+结果满足 `0.15 m` 到点半径和 `0.25 m/s` 速度约束，也没有再次出现 reward 上升而航点数下降的旧版行为。训练日志、checkpoint 和逐 episode CSV 保留在本地 `logs/` 下，不纳入 Git。
 
 ## 播放 checkpoint
 
@@ -254,7 +274,7 @@ python scripts/rl_games/play.py \
 scripts/rl_games/eval_metrics.py
 ```
 
-示例：评估最新 WaypointV1 checkpoint：
+示例：评估最新 WaypointV1 checkpoint 并保存逐 episode CSV：
 
 ```bash
 cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
@@ -267,14 +287,18 @@ python scripts/rl_games/eval_metrics.py \
   --checkpoint "$CKPT" \
   --num_envs=64 \
   --episodes=256 \
+  --csv "$LATEST_RUN/eval_metrics.csv" \
   --headless
 ```
 
-如果需要保存逐 episode 结果：
+评估 WaypointV2 时，脚本读取环境产生的真实穿点事件，不会因目标在 step 内切换而漏记成功：
 
 ```bash
+LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v2/2026-* | head -n 1)
+CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v2.pth"
+
 python scripts/rl_games/eval_metrics.py \
-  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
+  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
   --checkpoint "$CKPT" \
   --num_envs=64 \
   --episodes=256 \
@@ -295,6 +319,17 @@ mean_final_distance
 mean_min_distance
 mean_final_lin_vel
 mean_final_ang_vel
+```
+
+对于 WaypointV2，脚本改为输出连续航点指标：
+
+```text
+waypoint_episode_success_rate
+mean_waypoints_per_episode
+mean_waypoint_reach_distance
+mean_waypoint_reach_lin_vel
+termination_rate
+timeout_rate
 ```
 
 默认阈值：
@@ -323,6 +358,17 @@ logs/rl_games/quadcopter_waypoint_v1
 
 ```text
 logs/rl_games/quadcopter_waypoint_v2
+```
+
+对应的关键标签是：
+
+```text
+Episode/Episode_Reward/progress_to_goal
+Episode/Episode_Reward/waypoint_completion
+Episode/Metrics/waypoint_count
+Episode/Metrics/waypoint_success_rate
+Episode/Metrics/mean_waypoint_reach_distance
+Episode/Metrics/mean_waypoint_reach_lin_vel
 ```
 
 官方复刻基线重点看：
@@ -374,17 +420,19 @@ learning_rate
 ```text
 OfficialClone task  + quadcopter_direct checkpoint
 WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
+WaypointV2 task     + quadcopter_waypoint_v2 checkpoint
 ```
 
-### 3. 训练环境保持干净，指标单独评估
+### 3. 基线环境保持干净，连续任务记录必要事件
 
 调试中尝试过在训练环境里加入 `success_rate`、`stable_hover_rate`、`final_lin_vel` 等指标统计。虽然这些指标理论上不直接修改 reward、obs 或 done，但在 GPU 并行 RL 训练中，额外 tensor 运算和状态写入仍可能改变训练轨迹。
 
 当前策略是：
 
 ```text
-训练环境：保持和 OfficialClone 一致
-评估指标：后续单独写 evaluation 脚本统计
+OfficialClone / WaypointV1：保持基线环境不变
+WaypointV2：只记录任务必需的穿点事件和 episode 聚合指标
+独立评估：消费穿点事件，不向训练奖励或状态写回数据
 ```
 
 这样更利于复现实验结果。
@@ -401,6 +449,6 @@ WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
 
 ## 后续计划
 
-1. 使用独立 evaluation 脚本对 OfficialClone、WaypointV1 和 WaypointV2 的 checkpoint 做量化对比。
-2. 观察 WaypointV2 的 `Metrics/waypoint_count` 和 `Metrics/waypoint_success_rate`，确认连续航点是否稳定学会。
-3. 如果 v2 在官方目标范围内稳定，再逐步扩大目标范围，做 curriculum 训练。
+1. 使用可视化播放检查连续换点时的轨迹平滑性和姿态变化。
+2. 在保持当前 v2 作为稳定基线的前提下，逐步扩大航段和高度范围。
+3. 扩展任务难度时采用 curriculum，并继续用事件评估对比成功率、到点距离和速度。
