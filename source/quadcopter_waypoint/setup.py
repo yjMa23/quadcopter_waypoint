@@ -11,6 +11,7 @@ setup(
     package_data={
         "quadcopter_waypoint.tasks.direct.quadrotor_v1_metrics.agents": ["*.yaml"],
         "quadcopter_waypoint.tasks.direct.quadrotor_waypoint_v2.agents": ["*.yaml"],
+        "quadcopter_waypoint.tasks.direct.quadrotor_ship_landing.agents": ["*.yaml"],
     },
     include_package_data=True,
     install_requires=["psutil"],

@@ -1,10 +1,11 @@
 # Copyright (c) 2022-2026, The Isaac Lab Project Developers.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Evaluate fixed-target and continuous-waypoint rl_games quadcopter checkpoints.
+"""Evaluate fixed-target, continuous-waypoint, and ship-landing rl_games quadcopter checkpoints.
 
 Fixed-target tasks use state-derived hover metrics. Continuous-waypoint tasks consume exact one-step reach events
 published by the environment, so waypoint switches cannot hide successful arrivals from the evaluator.
+Ship-landing tasks consume terminal landing/crash events published by the environment.
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -153,6 +154,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         hasattr(task_env, name)
         for name in ("_waypoint_reached", "_waypoint_reach_distance", "_waypoint_reach_lin_vel")
     )
+    ship_landing = all(
+        hasattr(task_env, name)
+        for name in ("_landing_success", "_landing_touchdown_distance", "_landing_touchdown_rel_vel", "_crash")
+    )
     episode_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_strict_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_stable_hover = torch.zeros(num_envs, dtype=torch.bool, device=device)
@@ -168,19 +173,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         with torch.inference_mode():
             # Capture state before env.step(). The base DirectRLEnv resets terminated environments inside step(),
             # so these values are the last stable per-env metrics before any automatic reset happens.
-            distance_to_goal = torch.linalg.norm(task_env._desired_pos_w - task_env._robot.data.root_pos_w, dim=1)
+            if ship_landing:
+                distance = torch.linalg.norm(task_env._pad_pos_w - task_env._robot.data.root_pos_w, dim=1)
+            else:
+                distance = torch.linalg.norm(task_env._desired_pos_w - task_env._robot.data.root_pos_w, dim=1)
             lin_vel = torch.linalg.norm(task_env._robot.data.root_lin_vel_b, dim=1)
             ang_vel = torch.linalg.norm(task_env._robot.data.root_ang_vel_b, dim=1)
 
-            episode_min_distance = torch.minimum(episode_min_distance, distance_to_goal)
-            stable_hover = torch.logical_and(
-                distance_to_goal < args_cli.stable_radius,
-                torch.logical_and(lin_vel < args_cli.stable_lin_vel, ang_vel < args_cli.stable_ang_vel),
-            )
-            if not continuous_waypoint:
-                episode_success |= distance_to_goal < args_cli.success_radius
-                episode_strict_success |= distance_to_goal < args_cli.strict_success_radius
-                episode_stable_hover |= stable_hover
+            episode_min_distance = torch.minimum(episode_min_distance, distance)
+            if not ship_landing:
+                stable_hover = torch.logical_and(
+                    distance < args_cli.stable_radius,
+                    torch.logical_and(lin_vel < args_cli.stable_lin_vel, ang_vel < args_cli.stable_ang_vel),
+                )
+                if not continuous_waypoint:
+                    episode_success |= distance < args_cli.success_radius
+                    episode_strict_success |= distance < args_cli.strict_success_radius
+                    episode_stable_hover |= stable_hover
 
             obs = agent.obs_to_torch(obs)
             actions = agent.get_action(obs, is_deterministic=agent.is_deterministic)
@@ -199,36 +208,72 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             dones_tensor = torch.as_tensor(dones, dtype=torch.bool, device=device)
             done_ids = torch.nonzero(dones_tensor, as_tuple=False).squeeze(-1)
             if done_ids.numel() > 0:
-                final_distances = _tensor_to_float_list(distance_to_goal[done_ids])
-                final_lin_vels = _tensor_to_float_list(lin_vel[done_ids])
-                final_ang_vels = _tensor_to_float_list(ang_vel[done_ids])
+                final_distances = _tensor_to_float_list(distance[done_ids])
                 min_distances = _tensor_to_float_list(episode_min_distance[done_ids])
-                successes = episode_success[done_ids].detach().cpu().tolist()
-                strict_successes = episode_strict_success[done_ids].detach().cpu().tolist()
-                stable_hovers = episode_stable_hover[done_ids].detach().cpu().tolist()
-                final_stables = stable_hover[done_ids].detach().cpu().tolist()
-                waypoint_counts = episode_waypoint_count[done_ids]
-                mean_waypoint_reach_distances = torch.where(
-                    waypoint_counts > 0,
-                    episode_waypoint_reach_distance_sum[done_ids] / waypoint_counts.clamp_min(1),
-                    torch.zeros_like(episode_waypoint_reach_distance_sum[done_ids]),
-                )
-                mean_waypoint_reach_lin_vels = torch.where(
-                    waypoint_counts > 0,
-                    episode_waypoint_reach_lin_vel_sum[done_ids] / waypoint_counts.clamp_min(1),
-                    torch.zeros_like(episode_waypoint_reach_lin_vel_sum[done_ids]),
-                )
-                waypoint_counts_list = waypoint_counts.detach().cpu().tolist()
-                mean_waypoint_reach_distances_list = _tensor_to_float_list(mean_waypoint_reach_distances)
-                mean_waypoint_reach_lin_vels_list = _tensor_to_float_list(mean_waypoint_reach_lin_vels)
                 terminated = task_env.reset_terminated[done_ids].detach().cpu().tolist()
                 timed_out = task_env.reset_time_outs[done_ids].detach().cpu().tolist()
+
+                if ship_landing:
+                    align_successes = getattr(task_env, "_last_align_success", task_env._landing_success)[
+                        done_ids
+                    ].detach().cpu().tolist()
+                    successes = getattr(task_env, "_last_landing_success", task_env._landing_success)[
+                        done_ids
+                    ].detach().cpu().tolist()
+                    touchdown_distances = _tensor_to_float_list(
+                        getattr(
+                            task_env, "_last_landing_touchdown_distance", task_env._landing_touchdown_distance
+                        )[done_ids]
+                    )
+                    touchdown_rel_vels = _tensor_to_float_list(
+                        getattr(task_env, "_last_landing_touchdown_rel_vel", task_env._landing_touchdown_rel_vel)[
+                            done_ids
+                        ]
+                    )
+                    crashes = getattr(task_env, "_last_crash", task_env._crash)[done_ids].detach().cpu().tolist()
+                else:
+                    final_lin_vels = _tensor_to_float_list(lin_vel[done_ids])
+                    final_ang_vels = _tensor_to_float_list(ang_vel[done_ids])
+                    successes = episode_success[done_ids].detach().cpu().tolist()
+                    strict_successes = episode_strict_success[done_ids].detach().cpu().tolist()
+                    stable_hovers = episode_stable_hover[done_ids].detach().cpu().tolist()
+                    final_stables = stable_hover[done_ids].detach().cpu().tolist()
+                    waypoint_counts = episode_waypoint_count[done_ids]
+                    mean_waypoint_reach_distances = torch.where(
+                        waypoint_counts > 0,
+                        episode_waypoint_reach_distance_sum[done_ids] / waypoint_counts.clamp_min(1),
+                        torch.zeros_like(episode_waypoint_reach_distance_sum[done_ids]),
+                    )
+                    mean_waypoint_reach_lin_vels = torch.where(
+                        waypoint_counts > 0,
+                        episode_waypoint_reach_lin_vel_sum[done_ids] / waypoint_counts.clamp_min(1),
+                        torch.zeros_like(episode_waypoint_reach_lin_vel_sum[done_ids]),
+                    )
+                    waypoint_counts_list = waypoint_counts.detach().cpu().tolist()
+                    mean_waypoint_reach_distances_list = _tensor_to_float_list(mean_waypoint_reach_distances)
+                    mean_waypoint_reach_lin_vels_list = _tensor_to_float_list(mean_waypoint_reach_lin_vels)
 
                 for local_idx, env_id in enumerate(done_ids.detach().cpu().tolist()):
                     if len(completed) >= args_cli.episodes:
                         break
-                    completed.append(
-                        {
+                    if ship_landing:
+                        completed.append(
+                            {
+                                "episode": len(completed),
+                                "env_id": int(env_id),
+                                "align_success": bool(align_successes[local_idx]),
+                                "success": bool(successes[local_idx]),
+                                "final_distance": final_distances[local_idx],
+                                "min_distance": min_distances[local_idx],
+                                "touchdown_distance": touchdown_distances[local_idx],
+                                "touchdown_rel_vel": touchdown_rel_vels[local_idx],
+                                "crash": bool(crashes[local_idx]),
+                                "terminated": bool(terminated[local_idx]),
+                                "time_out": bool(timed_out[local_idx]),
+                            }
+                        )
+                    else:
+                        completed.append({
                             "episode": len(completed),
                             "env_id": int(env_id),
                             "final_distance": final_distances[local_idx],
@@ -244,8 +289,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                             "mean_waypoint_reach_lin_vel": mean_waypoint_reach_lin_vels_list[local_idx],
                             "terminated": bool(terminated[local_idx]),
                             "time_out": bool(timed_out[local_idx]),
-                        }
-                    )
+                        })
 
                 episode_success[done_ids] = False
                 episode_strict_success[done_ids] = False
@@ -273,6 +317,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     def rate(key: str) -> float:
         return sum(1.0 for ep in completed if bool(ep[key])) / len(completed)
 
+    def success_mean(key: str) -> float:
+        values = [float(ep[key]) for ep in completed if bool(ep["success"])]
+        if not values:
+            return float("nan")
+        return sum(values) / len(values)
+
     def waypoint_event_mean(key: str) -> float:
         waypoint_count = sum(int(ep["waypoint_count"]) for ep in completed)
         if waypoint_count == 0:
@@ -285,7 +335,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     print(f"episodes: {len(completed)}")
     print(f"num_envs: {num_envs}")
     print(f"steps: {step}")
-    if continuous_waypoint:
+    if ship_landing:
+        print(f"align_success_rate: {rate('align_success'):.4f}")
+        print(f"landing_success_rate: {rate('success'):.4f}")
+        print(f"mean_final_distance: {mean('final_distance'):.4f} m")
+        print(f"mean_min_distance: {mean('min_distance'):.4f} m")
+        print(f"mean_touchdown_distance: {success_mean('touchdown_distance'):.4f} m")
+        print(f"mean_touchdown_rel_vel: {success_mean('touchdown_rel_vel'):.4f} m/s")
+        print(f"crash_rate: {rate('crash'):.4f}")
+    elif continuous_waypoint:
         print(f"waypoint_episode_success_rate: {rate('success'):.4f}")
         print(f"mean_waypoints_per_episode: {mean('waypoint_count'):.4f}")
         print(f"mean_waypoint_reach_distance: {waypoint_event_mean('mean_waypoint_reach_distance'):.4f} m")

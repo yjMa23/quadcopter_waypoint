@@ -1,118 +1,47 @@
 # Quadcopter Waypoint RL
 
-这是一个基于 **Isaac Lab External Project** 方式搭建的四旋翼强化学习项目，用于复现并扩展官方任务 `Isaac-Quadcopter-Direct-v0`。当前阶段的目标不是马上改复杂任务，而是先保证外部项目迁移后的训练环境足够干净、可复现，再在此基础上做航点任务扩展。
+这是一个基于 **Isaac Lab External Project** 方式搭建的四旋翼强化学习项目，用于复现、验证并扩展 Isaac Lab 官方四旋翼任务。当前项目已经从官方悬停基线逐步扩展到连续航点任务和静态平台降落任务，后续将继续推进到低速移动平台和船舶运动降落。
 
-本轮迁移和调试得到的关键结论是：
+本仓库根目录只保留项目总览、目录索引和通用环境准备方式。各任务的训练、播放、评估、调试记录和阶段性结果，统一写在对应任务包目录下的 `README.md` 中。
 
-> External project 本身可以稳定复现官方四旋翼悬停效果。固定目标任务曾因训练设置和 checkpoint 使用不一致出现盘旋；连续航点 v2 则进一步发现了奖励错位：旧策略会停在 `0.5 m` 成功半径外持续获取距离奖励，而完成航点后反而损失奖励。当前 v2 已改用距离进展和航点完成奖励。
+## 当前阶段
 
-## 当前任务结构
-
-### 1. OfficialClone 官方复刻基线
-
-任务 ID：
-
-```bash
-Isaac-Quadcopter-OfficialClone-Direct-v0
-```
-
-代码位置：
-
-```bash
-source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_official_clone/
-```
-
-用途：
-
-- 完整复刻 Isaac Lab 官方 `Isaac-Quadcopter-Direct-v0` 的环境逻辑。
-- 只修改 Python 类名和 Gym 任务 ID，使其可以作为 external project 中的独立任务存在。
-- 后续所有改动都应以这个任务作为干净基线。
-
-该任务保留官方设定：
+当前稳定阶段是 **ShipLanding 静态平台降落**：
 
 ```text
-episode_length_s = 10.0
-scene.num_envs = 4096
-scene.env_spacing = 2.5
-goal x/y range = [-2.0, 2.0]
-goal z range = [0.5, 1.5]
-height termination = z < 0.1 or z > 2.0
-reward = 线速度惩罚 + 角速度惩罚 + 目标距离奖励
+Isaac-Quadcopter-ShipLanding-Direct-v0
 ```
 
-### 2. WaypointV1 稳定起点版本
-
-任务 ID：
-
-```bash
-Isaac-Quadcopter-WaypointV1-Direct-v0
-```
-
-代码位置：
-
-```bash
-source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics/
-```
-
-用途：
-
-- 训练环境继续复用干净的 `OfficialClone`。
-- 使用独立的 rl_games 实验名：`quadcopter_waypoint_v1`。
-- 避免 v1 checkpoint 与官方 `quadcopter_direct` checkpoint 混在同一个目录里。
-
-当前阶段的 v1 **不在训练环境内部添加指标统计**。前期调试发现，即使是 evaluation-only 的 tensor 运算，只要放进 RL 环境的 `_get_rewards()` 或 `_reset_idx()`，也可能让训练轨迹发生变化，使结果不再和官方基线一致。因此后续指标统计应该放到单独的 evaluation 脚本中，而不是插入训练环境。
-
-### 3. WaypointV2 连续航点版本
-
-任务 ID：
-
-```bash
-Isaac-Quadcopter-WaypointV2-Direct-v0
-```
-
-代码位置：
-
-```bash
-source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint_v2/
-```
-
-用途：
-
-- 在官方目标工作空间内实现连续航点任务。
-- 当无人机以低速精确进入当前目标后，不结束 episode，而是立即采样下一个目标点。
-- 使用“距离进展 + 航点完成”奖励，避免策略停在成功半径外刷分。
-- 约束相邻航点的三维航段长度，并记录航点数、真实到点距离和到点速度。
-
-v2 当前参数：
+已完成：
 
 ```text
-waypoint_reach_radius = 0.15 m
-waypoint_reach_lin_vel = 0.25 m/s
-waypoint_segment_length = [0.75, 2.0] m
-goal x/y range = [-2.0, 2.0]
-goal z range = [0.5, 1.5]
-episode_length_s = 10.0
-progress_reward_scale = 10.0
-waypoint_completion_reward = 10.0
+先飞到 landing pad 上方 → 对准 → 缓慢下降 → 接近板面后终止
 ```
 
-v2 的观测和动作维度保持不变，但奖励和航点切换语义已经改变。旧 v2 checkpoint 不应作为新任务的训练结果使用，修改后必须从头训练。
+当前稳定 checkpoint：
 
-### 4. 已废弃的旧实验任务
+```text
+logs/rl_games/quadcopter_ship_landing/2026-06-28_23-40-26/nn/quadcopter_ship_landing.pth
+```
 
-早期在 `quadrotor_waypoint/` 下实现过一个实验版本，包含扩大目标范围、环境内 success_rate / stable_hover_rate 指标等改动。该版本在排查问题时容易和官方复刻任务、v1 checkpoint 混淆，因此已经废弃。
+该阶段的详细说明、训练命令和评估结果见：
 
-旧实验目录已加入 `.gitignore`，不应作为后续开发基础。
+```text
+source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing/README.md
+```
 
-## 仓库结构
+## 项目结构
 
 ```text
 .
 ├── README.md
+├── logs/                         # 本地训练日志和 checkpoint，不纳入 Git
 ├── scripts/
 │   └── rl_games/
+│       ├── README.md              # train / play / eval wrapper 使用说明
 │       ├── train.py
-│       └── play.py
+│       ├── play.py
+│       └── eval_metrics.py
 └── source/
     └── quadcopter_waypoint/
         ├── setup.py
@@ -120,20 +49,43 @@ v2 的观测和动作维度保持不变，但奖励和航点切换语义已经�
             └── tasks/
                 └── direct/
                     ├── quadrotor_official_clone/
+                    │   ├── README.md
                     │   ├── __init__.py
                     │   └── quadrotor_official_clone_env.py
                     ├── quadrotor_v1_metrics/
+                    │   ├── README.md
                     │   ├── __init__.py
+                    │   ├── quadrotor_v1_metrics_env.py
                     │   └── agents/
-                    │       ├── __init__.py
                     │       └── rl_games_ppo_cfg.yaml
-                    └── quadrotor_waypoint_v2/
+                    ├── quadrotor_waypoint_v2/
+                    │   ├── README.md
+                    │   ├── __init__.py
+                    │   ├── quadrotor_waypoint_v2_env.py
+                    │   └── agents/
+                    │       └── rl_games_ppo_cfg.yaml
+                    ├── quadrotor_ship_landing/
+                    │   ├── README.md
+                    │   ├── __init__.py
+                    │   ├── quadrotor_ship_landing_env.py
+                    │   └── agents/
+                    │       └── rl_games_ppo_cfg.yaml
+                    └── quadrotor_waypoint/
+                        ├── README.md              # 已废弃旧实验说明
                         ├── __init__.py
-                        ├── quadrotor_waypoint_v2_env.py
-                        └── agents/
-                            ├── __init__.py
-                            └── rl_games_ppo_cfg.yaml
+                        └── quadrotor_waypoint_env.py
 ```
+
+## 文档索引
+
+| 模块 | 任务 ID / 用途 | 文档 |
+| --- | --- | --- |
+| OfficialClone | `Isaac-Quadcopter-OfficialClone-Direct-v0`，官方四旋翼任务 external project 复刻基线 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_official_clone/README.md` |
+| WaypointV1 | `Isaac-Quadcopter-WaypointV1-Direct-v0`，稳定起点版本，复用官方环境并独立实验名 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_v1_metrics/README.md` |
+| WaypointV2 | `Isaac-Quadcopter-WaypointV2-Direct-v0`，连续航点版本 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint_v2/README.md` |
+| ShipLanding | `Isaac-Quadcopter-ShipLanding-Direct-v0`，静态 landing pad 降落阶段 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing/README.md` |
+| Deprecated Waypoint | 已废弃旧实验版本，不作为后续开发基础 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_waypoint/README.md` |
+| rl_games scripts | 训练、播放、独立评估 wrapper | `scripts/rl_games/README.md` |
 
 ## 环境准备
 
@@ -150,305 +102,75 @@ cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
 python -m pip install -e source/quadcopter_waypoint
 ```
 
-## 训练命令
+安装后，任务注册由：
 
-### 训练 OfficialClone 基线
+```python
+import quadcopter_waypoint.tasks
+```
 
-用于确认 external project 是否能复现官方悬停任务：
+自动触发。`scripts/rl_games/train.py`、`play.py` 和 `eval_metrics.py` 已经在 wrapper 中注入该 import，不需要修改 Isaac Lab 官方源码。
+
+## 通用命令模板
+
+训练：
 
 ```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
 python scripts/rl_games/train.py \
-  --task=Isaac-Quadcopter-OfficialClone-Direct-v0 \
-  --num_envs=4096 \
+  --task=<TASK_ID> \
+  --num_envs=<N> \
   --headless \
-  --max_iterations=200
+  --max_iterations=<ITER>
 ```
 
-### 训练 WaypointV1
-
-这是当前稳定 v1 起点，使用独立日志目录：
+播放：
 
 ```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-python scripts/rl_games/train.py \
-  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
-  --num_envs=4096 \
-  --headless \
-  --max_iterations=200
-```
-
-预期日志目录：
-
-```text
-logs/rl_games/quadcopter_waypoint_v1/<timestamp>/
-```
-
-### 训练 WaypointV2
-
-v2 是低速精确穿点的连续航点版本。保持 `num_envs=4096`，从头训练 200 轮：
-
-```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-python scripts/rl_games/train.py \
-  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
-  --num_envs=4096 \
-  --headless \
-  --max_iterations=200
-```
-
-预期日志目录：
-
-```text
-logs/rl_games/quadcopter_waypoint_v2/<timestamp>/
-```
-
-### WaypointV2 已验证结果
-
-当前实现已经使用 `seed=42`、`num_envs=4096` 完成 200 epochs 从头训练，并对最佳 checkpoint 使用 64 个并行环境评估了 256 个完整 episode：
-
-| 指标 | 结果 |
-| --- | ---: |
-| 航点 episode 成功率 | 98.05% |
-| 平均每回合航点数 | 8.96 |
-| 平均到点距离 | 0.1391 m |
-| 平均到点线速度 | 0.2155 m/s |
-| 终止率 | 0% |
-
-结果满足 `0.15 m` 到点半径和 `0.25 m/s` 速度约束，也没有再次出现 reward 上升而航点数下降的旧版行为。训练日志、checkpoint 和逐 episode CSV 保留在本地 `logs/` 下，不纳入 Git。
-
-## 播放 checkpoint
-
-播放时一定要使用明确的 checkpoint 路径。不要在多个任务日志目录中使用 `find ... | sort | tail -n 1` 这类模糊方式，因为不同任务可能生成类似名称的 checkpoint，容易误加载。
-
-### 播放 OfficialClone
-
-```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-LATEST_RUN=$(ls -td logs/rl_games/quadcopter_direct/2026-* | head -n 1)
-CKPT="$LATEST_RUN/nn/quadcopter_direct.pth"
-
 python scripts/rl_games/play.py \
-  --task=Isaac-Quadcopter-OfficialClone-Direct-v0 \
+  --task=<TASK_ID> \
   --num_envs=1 \
-  --checkpoint "$CKPT"
+  --checkpoint <CHECKPOINT_PATH>
 ```
 
-### 播放 WaypointV1
+评估：
 
 ```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v1/2026-* | head -n 1)
-CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v1.pth"
-
-python scripts/rl_games/play.py \
-  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
-  --num_envs=1 \
-  --checkpoint "$CKPT"
-```
-
-### 播放 WaypointV2
-
-```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v2/2026-* | head -n 1)
-CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v2.pth"
-
-python scripts/rl_games/play.py \
-  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
-  --num_envs=1 \
-  --checkpoint "$CKPT"
-```
-
-## 独立评估指标
-
-为了避免指标统计影响训练轨迹，当前项目把评估逻辑放在独立脚本中：
-
-```bash
-scripts/rl_games/eval_metrics.py
-```
-
-示例：评估最新 WaypointV1 checkpoint 并保存逐 episode CSV：
-
-```bash
-cd /home/j/Isaac_RL_Projects/quadcopter_waypoint
-
-LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v1/2026-* | head -n 1)
-CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v1.pth"
-
 python scripts/rl_games/eval_metrics.py \
-  --task=Isaac-Quadcopter-WaypointV1-Direct-v0 \
-  --checkpoint "$CKPT" \
+  --task=<TASK_ID> \
+  --checkpoint <CHECKPOINT_PATH> \
   --num_envs=64 \
   --episodes=256 \
-  --csv "$LATEST_RUN/eval_metrics.csv" \
+  --csv <OUTPUT_CSV> \
   --headless
 ```
 
-评估 WaypointV2 时，脚本读取环境产生的真实穿点事件，不会因目标在 step 内切换而漏记成功：
+各任务推荐参数、稳定 checkpoint 和注意事项见对应任务目录的 `README.md`。
 
-```bash
-LATEST_RUN=$(ls -td logs/rl_games/quadcopter_waypoint_v2/2026-* | head -n 1)
-CKPT="$LATEST_RUN/nn/quadcopter_waypoint_v2.pth"
-
-python scripts/rl_games/eval_metrics.py \
-  --task=Isaac-Quadcopter-WaypointV2-Direct-v0 \
-  --checkpoint "$CKPT" \
-  --num_envs=64 \
-  --episodes=256 \
-  --csv "$LATEST_RUN/eval_metrics.csv" \
-  --headless
-```
-
-该脚本会输出：
-
-```text
-success_rate
-strict_success_rate
-stable_hover_rate
-final_stable_hover_rate
-termination_rate
-timeout_rate
-mean_final_distance
-mean_min_distance
-mean_final_lin_vel
-mean_final_ang_vel
-```
-
-对于 WaypointV2，脚本改为输出连续航点指标：
-
-```text
-waypoint_episode_success_rate
-mean_waypoints_per_episode
-mean_waypoint_reach_distance
-mean_waypoint_reach_lin_vel
-termination_rate
-timeout_rate
-```
-
-默认阈值：
-
-```text
-success_radius = 0.5 m
-strict_success_radius = 0.2 m
-stable_radius = 0.3 m
-stable_lin_vel = 0.25 m/s
-stable_ang_vel = 0.8 rad/s
-```
-
-## TensorBoard 查看
+## TensorBoard
 
 ```bash
 tensorboard --logdir /home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games
 ```
 
-稳定 v1 重点看：
-
-```text
-logs/rl_games/quadcopter_waypoint_v1
-```
-
-连续航点 v2 重点看：
-
-```text
-logs/rl_games/quadcopter_waypoint_v2
-```
-
-对应的关键标签是：
-
-```text
-Episode/Episode_Reward/progress_to_goal
-Episode/Episode_Reward/waypoint_completion
-Episode/Metrics/waypoint_count
-Episode/Metrics/waypoint_success_rate
-Episode/Metrics/mean_waypoint_reach_distance
-Episode/Metrics/mean_waypoint_reach_lin_vel
-```
-
-官方复刻基线重点看：
+日志目录按任务实验名区分：
 
 ```text
 logs/rl_games/quadcopter_direct
+logs/rl_games/quadcopter_waypoint_v1
+logs/rl_games/quadcopter_waypoint_v2
+logs/rl_games/quadcopter_ship_landing
 ```
 
-## 关键调试记录
+## 开发原则
 
-### 1. 当前 PPO 配置下建议固定 `num_envs=4096`
-
-官方 PPO 配置中：
-
-```yaml
-horizon_length: 24
-minibatch_size: 24576
-```
-
-当 `num_envs=1024` 时：
-
-```text
-batch size = 24 * 1024 = 24576
-```
-
-此时每次 PPO update 只有 1 个 minibatch。实际测试中，这个设置训练出的策略容易出现到目标附近盘旋、不够稳的现象。
-
-当 `num_envs=4096` 时：
-
-```text
-batch size = 24 * 4096 = 98304
-```
-
-此时每次 PPO update 可以分成 4 个 minibatch，复现了官方稳定悬停效果。
-
-如果后续因为显存限制必须降低 `num_envs`，不能只改 `num_envs`，还需要同步调整：
-
-```text
-minibatch_size
-horizon_length
-mini_epochs
-learning_rate
-```
-
-### 2. 不要混用 task 和 checkpoint
-
-调试过程中出现过“训练其实没问题，但播放效果不对”的情况，原因是不同任务共享或混用了 checkpoint 目录。后续必须显式匹配：
-
-```text
-OfficialClone task  + quadcopter_direct checkpoint
-WaypointV1 task     + quadcopter_waypoint_v1 checkpoint
-WaypointV2 task     + quadcopter_waypoint_v2 checkpoint
-```
-
-### 3. 基线环境保持干净，连续任务记录必要事件
-
-调试中尝试过在训练环境里加入 `success_rate`、`stable_hover_rate`、`final_lin_vel` 等指标统计。虽然这些指标理论上不直接修改 reward、obs 或 done，但在 GPU 并行 RL 训练中，额外 tensor 运算和状态写入仍可能改变训练轨迹。
-
-当前策略是：
-
-```text
-OfficialClone / WaypointV1：保持基线环境不变
-WaypointV2：只记录任务必需的穿点事件和 episode 聚合指标
-独立评估：消费穿点事件，不向训练奖励或状态写回数据
-```
-
-这样更利于复现实验结果。
-
-## 迁移过程总结
-
-1. 采用 Isaac Lab external project 方式，而不是直接修改 Isaac Lab 官方源码。
-2. 新增 `scripts/rl_games/train.py` 和 `scripts/rl_games/play.py` wrapper，在不破坏 Isaac Sim 启动顺序的前提下注入 external task 注册。
-3. 早期尝试了扩大目标范围和环境内指标统计，但训练效果出现盘旋，且日志/checkpoint 容易混乱。
-4. 新建 `OfficialClone`，完全复刻官方 `Isaac-Quadcopter-Direct-v0` 环境逻辑。
-5. 通过固定 checkpoint 路径和 `num_envs=4096`，确认 external project 可以复现官方稳定悬停效果。
-6. 废弃旧实验任务，避免后续继续在不稳定版本上叠加修改。
-7. 新建 `WaypointV1`，训练环境仍复用 `OfficialClone`，但使用独立实验名 `quadcopter_waypoint_v1`，避免 checkpoint 混用。
+1. 不直接修改 Isaac Lab 官方源码。
+2. 每个任务使用独立 Gym task ID 和独立 rl_games 实验名，避免 task / checkpoint 混用。
+3. 根 README 只维护项目索引；任务细节写到对应任务包目录。
+4. 训练环境尽量只保留任务必需状态；复杂指标优先放到 `scripts/rl_games/eval_metrics.py` 中独立评估。
+5. 新任务难度通过 curriculum 逐步增加，例如：静态平台 → 低速匀速移动平台 → 更高速度平台 → 正弦船舶运动。
 
 ## 后续计划
 
-1. 使用可视化播放检查连续换点时的轨迹平滑性和姿态变化。
-2. 在保持当前 v2 作为稳定基线的前提下，逐步扩大航段和高度范围。
-3. 扩展任务难度时采用 curriculum，并继续用事件评估对比成功率、到点距离和速度。
+1. 继续确认 ShipLanding 静态降落在 GUI 中的视觉表现。
+2. 扩展 `eval_metrics.py` 的行为质量指标，例如 `landing_time`、`max_descent_speed`、`mean_descent_speed`、`final_vertical_speed`。
+3. 进入 Phase 5A：低速匀速移动平台，先设置 `pad_vel_xy ∈ [-0.05, 0.05] m/s`，并从当前静态降落 checkpoint 微调。
+4. 低速移动平台稳定后，再进入更高平台速度和正弦船舶运动。
