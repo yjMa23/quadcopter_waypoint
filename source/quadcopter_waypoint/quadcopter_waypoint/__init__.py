@@ -1,4 +1,5 @@
-"""External Isaac Lab project for quadcopter waypoint RL tasks."""
+"""External Isaac Lab project for quadcopter waypoint RL tasks.
 
-# Register Gym environments when the package is imported.
-from .tasks import *  # noqa: F401,F403
+Task registration is intentionally explicit through ``import quadcopter_waypoint.tasks`` after AppLauncher starts.
+Keeping the top-level package import side-effect free lets pure-Python utilities run without loading USD/PhysX modules.
+"""

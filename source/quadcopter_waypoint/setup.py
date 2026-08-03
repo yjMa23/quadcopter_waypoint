@@ -8,8 +8,9 @@ setup(
     description="External Isaac Lab quadcopter waypoint RL task.",
     author="Ma Yingjie",
     packages=find_packages(),
-    # Apply to every discovered package so each task's agents/*.yaml survives wheel builds.
-    package_data={"": ["*.yaml"]},
+    # Include task-local rl_games configs in both editable installs and ordinary wheels. The recursive
+    # pattern is needed because each environment stores YAML under tasks/direct/<task>/agents/.
+    package_data={"quadcopter_waypoint": ["tasks/direct/*/agents/*.yaml"]},
     include_package_data=True,
     install_requires=["psutil"],
     python_requires=">=3.10",
