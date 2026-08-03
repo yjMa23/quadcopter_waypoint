@@ -16,6 +16,27 @@ P6C is an independent successor to the frozen P6B physical-deck task. It keeps t
 `Deck`, real `GroundSlab`, and two filtered `ContactSensor` instances, then adds absolute-time roll and
 pitch motion. P6B files are not modified to implement the new dynamics.
 
+## P7 use of this frozen task
+
+P7 does not change this environment's observation, reward, contact, termination, or motion semantics. It
+uses the frozen P6C checkpoint as a deterministic expert, then compares PPO-from-scratch, Behavior
+Cloning, and BC-initialized PPO under the same task and formal evaluator.
+
+Formal P7 evidence:
+
+```text
+benchmarks/phase7_imitation_hybrid/summary.json
+benchmarks/phase7_imitation_hybrid/formal_evaluations/
+docs/interview_p7_evidence.md
+```
+
+P7 collected 3976 successful episodes / 540321 transitions. BC-only achieved 88.28% settled landing
+across seeds 42/43/44 (256 episodes each), while the fair BC+PPO run achieved 76.69% and exhibited policy
+drift. These are retained as measured results; the environment remains frozen at tag
+`p6c-physical-deck-attitude-v1`.
+
+The policy is state based and does not contain camera images or real visual projection inputs.
+
 ## Motion contract
 
 For episode time `t`, the deck command is computed directly from the sampled initial state:

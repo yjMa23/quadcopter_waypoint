@@ -1,0 +1,46 @@
+{
+  "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed43/nn/p7_bc_ppo.pth",
+  "checkpoint_sha256": "02e3126b6cdba1340a1dbd0945b0762bb4b9921f7b00fb1a139f6e433507391d",
+  "created_at_utc": "2026-08-03T17:07:16.551922+00:00",
+  "outcome": "settled_landing",
+  "parallel_envs": 64,
+  "phase_names": {
+    "0": "approach",
+    "1": "align",
+    "2": "descent",
+    "3": "contact_settle"
+  },
+  "seed": 43,
+  "selected_env_id": 37,
+  "steps": 47,
+  "target": "success",
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "terminal": {
+    "deck_contact": true,
+    "deck_miss": false,
+    "deck_position_w": [
+      -1.073656439781189,
+      3.593796730041504,
+      0.38666874170303345
+    ],
+    "first_contact_body_deck_normal_angle_rad": 0.0009134905994869769,
+    "first_contact_normal_relative_speed_mps": -0.01747438870370388,
+    "first_contact_tangential_relative_speed_mps": 0.14713609218597412,
+    "first_contact_xy_error_m": 0.04915544390678406,
+    "ground_crash": false,
+    "hard_contact": false,
+    "maximum_penetration_m": 0.02001592144370079,
+    "robot_position_w": [
+      -1.1012887954711914,
+      3.54638409614563,
+      0.42104288935661316
+    ],
+    "settled_landing": true,
+    "time_out": false,
+    "touchdown_distance_m": 0.05447978526353836
+  },
+  "trajectory": "bc_ppo_success.npz",
+  "trajectory_sha256": "4524e450d416fa4fbea60b42f655165b9d27c1dc9bba2e7d345abea8acfb09bf",
+  "video_generated": false,
+  "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+}
