@@ -1,0 +1,17 @@
+{
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "requested_mode": "non-headless",
+  "num_envs": 1,
+  "display_environment": null,
+  "isaac_sim_behavior": "DISPLAY was unset, so SimulationApp automatically enabled --no-window and ran headless.",
+  "observed_messages": [
+    "DISPLAY environment variable is not set, running in headless mode with --no-window flag.",
+    "GLFW initialization failed.",
+    "failed to open the default display"
+  ],
+  "task_configuration_loaded": true,
+  "checkpoint_loaded_before_timeout": false,
+  "human_visual_inspection_completed": false,
+  "termination": "The non-headless launch was terminated after the bounded startup check; an orphan play process and telemetry child were then explicitly stopped.",
+  "conclusion": "GUI startup was attempted as required, but this execution session cannot support artificial or human visual verification. Headless 1-env and 16-env motion/contact checks passed and are recorded separately."
+}

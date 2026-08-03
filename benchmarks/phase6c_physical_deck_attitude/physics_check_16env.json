@@ -1,0 +1,33 @@
+{
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "num_envs": 16,
+  "motion_steps": 500,
+  "step_dt": 0.02,
+  "motion": {
+    "x_start": 3.752000093460083,
+    "x_end": 4.750003814697266,
+    "y_start": -3.750999927520752,
+    "y_end": -4.250001907348633,
+    "z_min": 0.20000001788139343,
+    "z_max": 0.4000000059604645,
+    "roll_min_deg": -4.99999985454646,
+    "roll_max_deg": 4.99999985454646,
+    "pitch_min_deg": -4.999936675296638,
+    "pitch_max_deg": 4.999936675296638,
+    "max_angular_speed": 0.08320102095603943,
+    "minimum_deck_bottom_corner_height": 0.13997545838356018,
+    "required_minimum_height": 0.05,
+    "max_position_consistency_error": 0.0,
+    "max_orientation_consistency_error_deg": 0.0,
+    "max_linear_velocity_consistency_error": 0.0,
+    "max_angular_velocity_consistency_error": 0.0
+  },
+  "contacts": {
+    "deck_test_deck_force_min": 0.2760978043079376,
+    "deck_test_ground_force_max": 0.0,
+    "ground_test_ground_force_min": 0.27701690793037415,
+    "ground_test_deck_force_max": 0.0,
+    "contact_force_threshold": 0.02
+  },
+  "status": "PASS"
+}

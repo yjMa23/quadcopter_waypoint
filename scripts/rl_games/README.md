@@ -11,10 +11,13 @@ import quadcopter_waypoint.tasks
 ## 文件
 
 ```text
-train.py                    训练 wrapper
-play.py                     播放 wrapper
-eval_metrics.py             独立评估与逐 episode CSV
-eval_metrics_utils.py       可脱离 Isaac Sim 测试的统计辅助逻辑
+train.py                                   训练 wrapper
+play.py                                    播放 wrapper
+eval_metrics.py                            独立评估与逐 episode CSV
+eval_metrics_utils.py                      可脱离 Isaac Sim 测试的统计辅助逻辑
+expand_checkpoint_observation.py           16→22 维 rl_games checkpoint 迁移
+check_physical_deck_attitude_physics.py     甲板运动与 deck/ground 接触诊断
+summarize_physical_deck_attitude.py         P6C 三种子 benchmark 聚合
 ```
 
 ## 训练
@@ -194,10 +197,54 @@ maximum_penetration
 
 成功 first-contact P95 只在成功 episode 上统计；同时输出 all-contact P95，避免隐藏失败接触分布。
 
+### PhysicalDeckAttitude
+
+P6C 在 Phase 6B 字段基础上增加：
+
+```text
+first_contact_deck_roll / pitch / tilt
+first_contact_deck_angular_speed
+first_contact_body_deck_normal_angle
+terminal_body_deck_normal_angle
+first/terminal normal relative speed
+first/terminal tangential relative speed
+max_contact_impulse
+terminal deck roll / pitch / tilt / angular speed
+deck pose/velocity consistency errors
+deck tilt buckets
+deck angular-speed buckets
+```
+
+法向与切向速度使用 deck 表面点速度 `v_center + omega × r`，而不是只减甲板中心线速度。姿态角以弧度写入 CSV、以度输出 P95。
+
+## 16→22 checkpoint 迁移
+
+```bash
+PYTHONPATH=source/quadcopter_waypoint python \
+  scripts/rl_games/expand_checkpoint_observation.py \
+  --input <P6B_16D.pth> \
+  --output <P6C_22D.pth>
+```
+
+迁移器会检查真实 state-dict key 和 shape，复制第一层前 16 列，将新增 6 列置零，扩展 observation mean/variance，并同步扩展 Adam moment。源文件和已存在的输出文件均不会被覆盖；旁路 JSON 保存输入/输出 SHA256。
+
+## P6C 物理诊断
+
+```bash
+PYTHONPATH=source/quadcopter_waypoint python \
+  scripts/rl_games/check_physical_deck_attitude_physics.py \
+  --num_envs=16 \
+  --motion_steps=500 \
+  --output benchmarks/phase6c_physical_deck_attitude/physics_check_16env.json \
+  --headless
+```
+
+脚本运行确定性 xy/heave/roll/pitch 完整周期，检查最低底角、位姿/速度一致性，并分别把无人机放到 deck 和 GroundSlab，要求目标 ContactSensor 非零且另一通道为零。
+
 ## 纯 Python 测试
 
 ```bash
-python -m unittest discover -s tests -v
+PYTHONPATH=source/quadcopter_waypoint python -m pytest -q tests
 ```
 
 覆盖：
@@ -205,9 +252,14 @@ python -m unittest discover -s tests -v
 ```text
 live Tensor 在 reset 后变化
 terminal latch 优先级
-pad speed bucket 边界
+pad/deck tilt/deck angular-speed bucket 边界
 成功 episode 独占 touchdown 汇总
 空成功集合 NaN 语义
+quaternion 与 Euler-rate angular velocity 一致性
+world/deck frame 转换、omega × r、法/切向分解
+倾斜平面 clearance 与最低高度安全边界
+checkpoint 第一层、normalization 与 optimizer moment 迁移
+错误维度与覆盖保护
 ```
 
 ## 常用任务 ID
@@ -219,4 +271,5 @@ Isaac-Quadcopter-WaypointV2-Direct-v0
 Isaac-Quadcopter-ShipLanding-Direct-v0
 Isaac-Quadcopter-ShipLanding-Heave-Direct-v0
 Isaac-Quadcopter-ShipLanding-PhysicalDeck-Direct-v0
+Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0
 ```
