@@ -17,7 +17,16 @@ import random
 import sys
 from pathlib import Path
 
-from eval_metrics_utils import PAD_SPEED_BUCKETS, mean_or_nan, pad_speed_bucket, percentile_or_nan
+from eval_metrics_utils import (
+    DECK_ANGULAR_SPEED_BUCKETS,
+    DECK_TILT_BUCKETS,
+    PAD_SPEED_BUCKETS,
+    deck_angular_speed_bucket,
+    deck_tilt_bucket,
+    mean_or_nan,
+    pad_speed_bucket,
+    percentile_or_nan,
+)
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
@@ -169,6 +178,20 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             "_last_deck_miss",
         )
     )
+    physical_deck_attitude = physical_deck and all(
+        hasattr(task_env, name)
+        for name in (
+            "_last_first_contact_deck_roll",
+            "_last_first_contact_deck_pitch",
+            "_last_first_contact_deck_tilt",
+            "_last_first_contact_deck_angular_speed",
+            "_last_first_contact_body_deck_normal_angle",
+            "_last_terminal_body_deck_normal_angle",
+            "_last_terminal_normal_relative_speed",
+            "_last_terminal_tangential_relative_speed",
+            "_last_max_contact_impulse",
+        )
+    )
     episode_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_strict_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_stable_hover = torch.zeros(num_envs, dtype=torch.bool, device=device)
@@ -314,6 +337,54 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                             task_env._last_minimum_surface_clearance[done_ids]
                         )
                         maximum_penetrations = _tensor_to_float_list(task_env._last_maximum_penetration[done_ids])
+                        if physical_deck_attitude:
+                            first_contact_deck_rolls = _tensor_to_float_list(
+                                task_env._last_first_contact_deck_roll[done_ids]
+                            )
+                            first_contact_deck_pitches = _tensor_to_float_list(
+                                task_env._last_first_contact_deck_pitch[done_ids]
+                            )
+                            first_contact_deck_tilts = _tensor_to_float_list(
+                                task_env._last_first_contact_deck_tilt[done_ids]
+                            )
+                            first_contact_deck_angular_speeds = _tensor_to_float_list(
+                                task_env._last_first_contact_deck_angular_speed[done_ids]
+                            )
+                            first_contact_body_deck_angles = _tensor_to_float_list(
+                                task_env._last_first_contact_body_deck_normal_angle[done_ids]
+                            )
+                            terminal_body_deck_angles = _tensor_to_float_list(
+                                task_env._last_terminal_body_deck_normal_angle[done_ids]
+                            )
+                            terminal_normal_rel_speeds = _tensor_to_float_list(
+                                task_env._last_terminal_normal_relative_speed[done_ids]
+                            )
+                            terminal_tangential_rel_speeds = _tensor_to_float_list(
+                                task_env._last_terminal_tangential_relative_speed[done_ids]
+                            )
+                            max_contact_impulses = _tensor_to_float_list(task_env._last_max_contact_impulse[done_ids])
+                            terminal_deck_rolls = _tensor_to_float_list(task_env._last_terminal_deck_roll[done_ids])
+                            terminal_deck_pitches = _tensor_to_float_list(task_env._last_terminal_deck_pitch[done_ids])
+                            terminal_deck_tilts = _tensor_to_float_list(task_env._last_terminal_deck_tilt[done_ids])
+                            terminal_deck_angular_speeds = _tensor_to_float_list(
+                                task_env._last_terminal_deck_angular_speed[done_ids]
+                            )
+                            max_deck_position_errors = _tensor_to_float_list(
+                                task_env._last_max_deck_position_consistency_error[done_ids]
+                            )
+                            max_deck_orientation_errors = _tensor_to_float_list(
+                                task_env._last_max_deck_orientation_consistency_error[done_ids]
+                            )
+                            max_deck_linear_velocity_errors = _tensor_to_float_list(
+                                task_env._last_max_deck_linear_velocity_consistency_error[done_ids]
+                            )
+                            max_deck_angular_velocity_errors = _tensor_to_float_list(
+                                task_env._last_max_deck_angular_velocity_consistency_error[done_ids]
+                            )
+                            deck_tilt_buckets = [deck_tilt_bucket(value) for value in first_contact_deck_tilts]
+                            deck_angular_speed_buckets = [
+                                deck_angular_speed_bucket(value) for value in first_contact_deck_angular_speeds
+                            ]
                 else:
                     final_distances = _tensor_to_float_list(distance[done_ids])
                     min_distances = _tensor_to_float_list(episode_min_distance[done_ids])
@@ -395,6 +466,30 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                                     "maximum_penetration": maximum_penetrations[local_idx],
                                 }
                             )
+                            if physical_deck_attitude:
+                                completed[-1].update(
+                                    {
+                                        "first_contact_deck_roll": first_contact_deck_rolls[local_idx],
+                                        "first_contact_deck_pitch": first_contact_deck_pitches[local_idx],
+                                        "first_contact_deck_tilt": first_contact_deck_tilts[local_idx],
+                                        "first_contact_deck_angular_speed": first_contact_deck_angular_speeds[local_idx],
+                                        "first_contact_body_deck_normal_angle": first_contact_body_deck_angles[local_idx],
+                                        "terminal_body_deck_normal_angle": terminal_body_deck_angles[local_idx],
+                                        "terminal_normal_relative_speed": terminal_normal_rel_speeds[local_idx],
+                                        "terminal_tangential_relative_speed": terminal_tangential_rel_speeds[local_idx],
+                                        "max_contact_impulse": max_contact_impulses[local_idx],
+                                        "terminal_deck_roll": terminal_deck_rolls[local_idx],
+                                        "terminal_deck_pitch": terminal_deck_pitches[local_idx],
+                                        "terminal_deck_tilt": terminal_deck_tilts[local_idx],
+                                        "terminal_deck_angular_speed": terminal_deck_angular_speeds[local_idx],
+                                        "deck_tilt_bucket": deck_tilt_buckets[local_idx],
+                                        "deck_angular_speed_bucket": deck_angular_speed_buckets[local_idx],
+                                        "max_deck_position_consistency_error": max_deck_position_errors[local_idx],
+                                        "max_deck_orientation_consistency_error": max_deck_orientation_errors[local_idx],
+                                        "max_deck_linear_velocity_consistency_error": max_deck_linear_velocity_errors[local_idx],
+                                        "max_deck_angular_velocity_consistency_error": max_deck_angular_velocity_errors[local_idx],
+                                    }
+                                )
                     else:
                         completed.append({
                             "episode": len(completed),
@@ -523,6 +618,58 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             print(f"mean_max_contact_force: {success_mean('max_contact_force'):.4f} N")
             print(f"mean_settle_time: {success_mean('settle_time'):.4f} s")
             print(f"mean_maximum_penetration: {success_mean('maximum_penetration'):.4f} m")
+            print(f"maximum_penetration_max: {max(float(ep['maximum_penetration']) for ep in completed):.4f} m")
+            if physical_deck_attitude:
+                successful_normal_speeds = [
+                    abs(float(ep["first_contact_normal_rel_speed"]))
+                    for ep in completed
+                    if bool(ep["success"]) and bool(ep["first_contact_seen"])
+                ]
+                successful_body_deck_angles = [
+                    math.degrees(float(ep["first_contact_body_deck_normal_angle"]))
+                    for ep in completed
+                    if bool(ep["success"]) and bool(ep["first_contact_seen"])
+                ]
+                print(
+                    "successful_first_contact_normal_relative_speed_P95: "
+                    f"{percentile_or_nan(successful_normal_speeds, 95.0):.4f} m/s"
+                )
+                print(
+                    "successful_first_contact_body_deck_normal_angle_P95: "
+                    f"{percentile_or_nan(successful_body_deck_angles, 95.0):.4f} deg"
+                )
+                print(f"mean_max_contact_impulse: {success_mean('max_contact_impulse'):.6f} N*s")
+                print(
+                    "max_deck_pose_consistency_error: "
+                    f"{max(float(ep['max_deck_position_consistency_error']) for ep in completed):.6f} m, "
+                    f"{math.degrees(max(float(ep['max_deck_orientation_consistency_error']) for ep in completed)):.6f} deg"
+                )
+                print(
+                    "max_deck_velocity_consistency_error: "
+                    f"{max(float(ep['max_deck_linear_velocity_consistency_error']) for ep in completed):.6f} m/s, "
+                    f"{max(float(ep['max_deck_angular_velocity_consistency_error']) for ep in completed):.6f} rad/s"
+                )
+                for label, bucket_names, field_name in (
+                    ("deck_tilt_buckets", DECK_TILT_BUCKETS, "deck_tilt_bucket"),
+                    (
+                        "deck_angular_speed_buckets",
+                        DECK_ANGULAR_SPEED_BUCKETS,
+                        "deck_angular_speed_bucket",
+                    ),
+                ):
+                    print(f"{label}:")
+                    for bucket in bucket_names:
+                        bucket_eps = [ep for ep in completed if ep.get(field_name) == bucket]
+                        if not bucket_eps:
+                            continue
+                        bucket_successes = [ep for ep in bucket_eps if bool(ep["success"])]
+                        print(
+                            f"  {bucket}: n={len(bucket_eps)}, "
+                            f"settled_landing_rate={len(bucket_successes) / len(bucket_eps):.4f}, "
+                            f"hard_contact_rate={sum(bool(ep['hard_contact']) for ep in bucket_eps) / len(bucket_eps):.4f}, "
+                            f"ground_crash_rate={sum(bool(ep['ground_crash']) for ep in bucket_eps) / len(bucket_eps):.4f}, "
+                            f"timeout_rate={sum(bool(ep['time_out']) for ep in bucket_eps) / len(bucket_eps):.4f}"
+                        )
         print("pad_speed_buckets:")
         for bucket in PAD_SPEED_BUCKETS:
             bucket_eps = [ep for ep in completed if ep.get("pad_speed_bucket") == bucket]

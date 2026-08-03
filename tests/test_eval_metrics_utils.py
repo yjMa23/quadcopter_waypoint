@@ -46,6 +46,34 @@ class EvalMetricsUtilsTest(unittest.TestCase):
             with self.subTest(speed=speed):
                 self.assertEqual(metrics_utils.pad_speed_bucket(speed), expected)
 
+    def test_deck_tilt_bucket_boundaries(self):
+        cases = {
+            math.radians(0.0): "0-2deg",
+            math.radians(1.999): "0-2deg",
+            math.radians(2.0): "2-4deg",
+            math.radians(3.999): "2-4deg",
+            math.radians(4.0): "4-6deg",
+            math.radians(5.999): "4-6deg",
+            math.radians(6.0): ">=6deg",
+        }
+        for tilt, expected in cases.items():
+            with self.subTest(tilt=tilt):
+                self.assertEqual(metrics_utils.deck_tilt_bucket(tilt), expected)
+
+    def test_deck_angular_speed_bucket_boundaries(self):
+        cases = {
+            0.0: "0.00-0.04",
+            0.03999: "0.00-0.04",
+            0.04: "0.04-0.08",
+            0.07999: "0.04-0.08",
+            0.08: "0.08-0.12",
+            0.11999: "0.08-0.12",
+            0.12: ">=0.12",
+        }
+        for speed, expected in cases.items():
+            with self.subTest(speed=speed):
+                self.assertEqual(metrics_utils.deck_angular_speed_bucket(speed), expected)
+
     def test_touchdown_summary_uses_successful_episodes_only(self):
         episodes = [
             {

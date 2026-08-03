@@ -10,6 +10,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 PAD_SPEED_BUCKETS = ("0.00-0.05", "0.05-0.10", "0.10-0.15", ">=0.15")
+DECK_TILT_BUCKETS = ("0-2deg", "2-4deg", "4-6deg", ">=6deg")
+DECK_ANGULAR_SPEED_BUCKETS = ("0.00-0.04", "0.04-0.08", "0.08-0.12", ">=0.12")
 
 
 def pad_speed_bucket(pad_speed: float) -> str:
@@ -21,6 +23,30 @@ def pad_speed_bucket(pad_speed: float) -> str:
     if pad_speed < 0.15:
         return PAD_SPEED_BUCKETS[2]
     return PAD_SPEED_BUCKETS[3]
+
+
+def deck_tilt_bucket(tilt_radians: float) -> str:
+    """Return the requested first-contact deck-tilt bucket."""
+    tilt_degrees = math.degrees(abs(float(tilt_radians)))
+    if tilt_degrees < 2.0:
+        return DECK_TILT_BUCKETS[0]
+    if tilt_degrees < 4.0:
+        return DECK_TILT_BUCKETS[1]
+    if tilt_degrees < 6.0:
+        return DECK_TILT_BUCKETS[2]
+    return DECK_TILT_BUCKETS[3]
+
+
+def deck_angular_speed_bucket(angular_speed: float) -> str:
+    """Return a half-open deck angular-speed bucket in rad/s."""
+    angular_speed = abs(float(angular_speed))
+    if angular_speed < 0.04:
+        return DECK_ANGULAR_SPEED_BUCKETS[0]
+    if angular_speed < 0.08:
+        return DECK_ANGULAR_SPEED_BUCKETS[1]
+    if angular_speed < 0.12:
+        return DECK_ANGULAR_SPEED_BUCKETS[2]
+    return DECK_ANGULAR_SPEED_BUCKETS[3]
 
 
 def select_terminal_value(latched: Any, fallback: Any, valid: bool) -> Any:
