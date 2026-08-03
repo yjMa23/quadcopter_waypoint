@@ -8,11 +8,8 @@ setup(
     description="External Isaac Lab quadcopter waypoint RL task.",
     author="Ma Yingjie",
     packages=find_packages(),
-    package_data={
-        "quadcopter_waypoint.tasks.direct.quadrotor_v1_metrics.agents": ["*.yaml"],
-        "quadcopter_waypoint.tasks.direct.quadrotor_waypoint_v2.agents": ["*.yaml"],
-        "quadcopter_waypoint.tasks.direct.quadrotor_ship_landing.agents": ["*.yaml"],
-    },
+    # Apply to every discovered package so each task's agents/*.yaml survives wheel builds.
+    package_data={"": ["*.yaml"]},
     include_package_data=True,
     install_requires=["psutil"],
     python_requires=">=3.10",
