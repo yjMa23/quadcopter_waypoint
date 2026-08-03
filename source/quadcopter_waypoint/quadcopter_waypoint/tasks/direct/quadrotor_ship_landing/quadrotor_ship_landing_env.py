@@ -81,27 +81,47 @@ class QuadcopterShipLandingEnvCfg(DirectRLEnvCfg):
     moment_scale = 0.01
 
     # align stage
-    align_radius = 0.20
+    align_radius = 0.25
     align_height_min = 0.55
     align_height_max = 0.95
-    align_max_horizontal_speed = 0.25
+    align_max_horizontal_speed = 0.30
     align_upright = 0.92
-    align_hold_steps = 15
+    align_hold_steps = 8
 
     # landing success thresholds
     landing_success_radius = 0.16
-    landing_success_height = 0.10
-    landing_success_rel_vel = 0.30
+    landing_success_height = 0.070
+    landing_success_rel_vel = 0.32
+    landing_success_horizontal_rel_vel = 0.16
     landing_success_ang_vel = 0.9
     landing_success_upright = 0.93
     landing_success_hold_steps = 4
 
+    # contact proxy: pad marker top + approximate root-to-landing-feet offset
+    pad_thickness = 0.03
+    robot_landing_surface_offset = 0.035
+    landing_contact_clearance = 0.060
+    max_landing_surface_penetration = 0.010
+    landing_contact_target_clearance = 0.005
+
     # height targets
     approach_target_height = 0.75
-    landing_target_height = 0.08
+    landing_target_height = 0.055
 
     # descent control
     descent_speed_limit = 0.22
+
+    # descent tracking for moving pad
+    descent_horizontal_rel_vel_reward_scale = -3.0
+    near_pad_track_height = 0.45
+    near_pad_horizontal_rel_vel_reward_scale = -5.0
+    expected_descent_speed = 0.25
+    max_prediction_time = 1.5
+    predicted_pad_error_reward_scale = -2.0
+    observation_pad_lookahead_time = 0.00
+
+    # moving pad curriculum
+    pad_velocity_xy_range = 0.20
 
     # crash / workspace thresholds
     min_crash_height = 0.02
@@ -111,16 +131,17 @@ class QuadcopterShipLandingEnvCfg(DirectRLEnvCfg):
     # reward scales
     lin_vel_reward_scale = -0.05
     ang_vel_reward_scale = -0.03
-    progress_reward_scale = 4.0
+    progress_reward_scale = 5.0
     height_progress_reward_scale = 0.0
-    horizontal_error_reward_scale = -1.0
+    horizontal_error_reward_scale = -2.5
     height_tracking_reward_scale = -2.0
-    rel_vel_reward_scale = -0.5
+    rel_vel_reward_scale = -0.6
     tilt_reward_scale = -1.0
     descent_vel_reward_scale = -3.0
+    contact_clearance_reward_scale = -8.0
     align_bonus = 1.0
     align_hold_reward_scale = 0.5
-    landing_bonus = 35.0
+    landing_bonus = 40.0
     post_align_descent_reward_scale = 6.0
     crash_penalty = -20.0
 
@@ -136,7 +157,7 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         self._thrust = torch.zeros(self.num_envs, 1, 3, device=self.device)
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
 
-        # Static landing pad state.
+        # Landing pad state.
         self._pad_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
         self._pad_vel_w = torch.zeros(self.num_envs, 3, device=self.device)
         self._previous_horizontal_error = torch.zeros(self.num_envs, device=self.device)
@@ -156,6 +177,20 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         self._last_landing_touchdown_rel_vel = torch.zeros(self.num_envs, device=self.device)
         self._last_crash = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
+        # DirectRLEnv resets completed environments inside step(). These buffers preserve the exact
+        # terminal state before reset overwrites the robot and pad state used by external evaluators.
+        self._terminal_state_valid = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._terminal_terminated = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._terminal_time_out = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._terminal_robot_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_robot_lin_vel_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_robot_ang_vel_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_pad_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_pad_vel_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_relative_vel_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self._terminal_horizontal_error = torch.zeros(self.num_envs, device=self.device)
+        self._terminal_surface_clearance = torch.zeros(self.num_envs, device=self.device)
+
         # Logging
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -169,6 +204,10 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
                 "rel_vel",
                 "tilt",
                 "descent_vel",
+                "descent_horizontal_rel_vel",
+                "near_pad_horizontal_rel_vel",
+                "predicted_pad_error",
+                "contact_clearance",
                 "align_bonus",
                 "align_hold",
                 "landing_bonus",
@@ -201,9 +240,13 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         light_cfg.func("/World/Light", light_cfg)
 
     def _pre_physics_step(self, actions: torch.Tensor):
+        self._update_pad_motion()
         self._actions = actions.clone().clamp(-1.0, 1.0)
         self._thrust[:, 0, 2] = self.cfg.thrust_to_weight * self._robot_weight * (self._actions[:, 0] + 1.0) / 2.0
         self._moment[:, 0, :] = self.cfg.moment_scale * self._actions[:, 1:]
+
+    def _update_pad_motion(self):
+        self._pad_pos_w[:, :2] += self._pad_vel_w[:, :2] * self.step_dt
 
     def _apply_action(self):
         self._robot.permanent_wrench_composer.set_forces_and_torques(
@@ -211,10 +254,12 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         )
 
     def _get_observations(self) -> dict:
+        pad_obs_pos_w = self._pad_pos_w.clone()
+        pad_obs_pos_w[:, :2] += self._pad_vel_w[:, :2] * self.cfg.observation_pad_lookahead_time
         pad_rel_pos_b, _ = subtract_frame_transforms(
             self._robot.data.root_pos_w,
             self._robot.data.root_quat_w,
-            self._pad_pos_w,
+            pad_obs_pos_w,
         )
         pad_rel_vel_w = self._pad_vel_w - self._robot.data.root_lin_vel_w
         obs = torch.cat(
@@ -239,6 +284,9 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         horizontal_error = torch.linalg.norm(self._pad_pos_w[:, :2] - robot_pos_w[:, :2], dim=1)
         height_error = torch.abs(robot_pos_w[:, 2] - self._pad_pos_w[:, 2])
         robot_height_above_pad = robot_pos_w[:, 2] - self._pad_pos_w[:, 2]
+        pad_surface_height_w = self._pad_pos_w[:, 2] + 0.5 * self.cfg.pad_thickness
+        robot_bottom_height_w = robot_pos_w[:, 2] - self.cfg.robot_landing_surface_offset
+        landing_surface_clearance = robot_bottom_height_w - pad_surface_height_w
         distance_to_pad = torch.linalg.norm(self._pad_pos_w - robot_pos_w, dim=1)
         rel_vel = torch.linalg.norm(robot_lin_vel_w - self._pad_vel_w, dim=1)
         horizontal_speed = torch.linalg.norm(robot_lin_vel_w[:, :2] - self._pad_vel_w[:, :2], dim=1)
@@ -259,8 +307,10 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         landing_candidate = (
             can_land
             & (horizontal_error < self.cfg.landing_success_radius)
-            & (height_error < self.cfg.landing_success_height)
+            & (landing_surface_clearance < self.cfg.landing_contact_clearance)
+            & (landing_surface_clearance > -self.cfg.max_landing_surface_penetration)
             & (rel_vel < self.cfg.landing_success_rel_vel)
+            & (horizontal_speed < self.cfg.landing_success_horizontal_rel_vel)
             & (ang_vel_norm < self.cfg.landing_success_ang_vel)
             & (upright > self.cfg.landing_success_upright)
         )
@@ -271,6 +321,23 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         )
         height_tracking_error = torch.abs(robot_height_above_pad - desired_height_above_pad)
         excess_descent_speed = torch.clamp(descent_speed - self.cfg.descent_speed_limit, min=0.0)
+        contact_clearance_error = torch.abs(landing_surface_clearance - self.cfg.landing_contact_target_clearance)
+        near_pad_track_weight = torch.where(
+            can_land,
+            torch.clamp(
+                (self.cfg.near_pad_track_height - robot_height_above_pad) / self.cfg.near_pad_track_height,
+                min=0.0,
+                max=1.0,
+            ),
+            torch.zeros_like(horizontal_error),
+        )
+        time_to_go = torch.clamp(
+            robot_height_above_pad / self.cfg.expected_descent_speed,
+            min=0.0,
+            max=self.cfg.max_prediction_time,
+        )
+        predicted_pad_xy = self._pad_pos_w[:, :2] + self._pad_vel_w[:, :2] * time_to_go.unsqueeze(-1)
+        predicted_horizontal_error = torch.linalg.norm(predicted_pad_xy - robot_pos_w[:, :2], dim=1)
 
         xy_distance_from_origin = torch.linalg.norm(
             robot_pos_w[:, :2] - self._terrain.env_origins[:, :2], dim=1
@@ -284,9 +351,15 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
             "horizontal_error": horizontal_error,
             "height_error": height_error,
             "robot_height_above_pad": robot_height_above_pad,
+            "pad_surface_height_w": pad_surface_height_w,
+            "robot_bottom_height_w": robot_bottom_height_w,
+            "landing_surface_clearance": landing_surface_clearance,
+            "contact_clearance_error": contact_clearance_error,
             "distance_to_pad": distance_to_pad,
             "rel_vel": rel_vel,
             "horizontal_speed": horizontal_speed,
+            "near_pad_track_weight": near_pad_track_weight,
+            "predicted_horizontal_error": predicted_horizontal_error,
             "vertical_speed": vertical_speed,
             "descent_speed": descent_speed,
             "ang_vel_norm": ang_vel_norm,
@@ -311,6 +384,16 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
             torch.zeros_like(horizontal_error),
         )
         descent_vel = torch.square(terms["excess_descent_speed"])
+        descent_horizontal_rel_vel = torch.where(
+            terms["can_land"], terms["horizontal_speed"], torch.zeros_like(horizontal_error)
+        )
+        near_pad_horizontal_rel_vel = terms["near_pad_track_weight"] * terms["horizontal_speed"]
+        predicted_pad_error = torch.where(
+            terms["can_land"], terms["predicted_horizontal_error"], torch.zeros_like(horizontal_error)
+        )
+        contact_clearance = torch.where(
+            terms["can_land"], terms["contact_clearance_error"], torch.zeros_like(horizontal_error)
+        )
 
         rewards = {
             "lin_vel": lin_vel_sq * self.cfg.lin_vel_reward_scale * self.step_dt,
@@ -322,6 +405,14 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
             "rel_vel": terms["rel_vel"] * self.cfg.rel_vel_reward_scale * self.step_dt,
             "tilt": (1.0 - terms["upright"]) * self.cfg.tilt_reward_scale * self.step_dt,
             "descent_vel": descent_vel * self.cfg.descent_vel_reward_scale * self.step_dt,
+            "descent_horizontal_rel_vel": descent_horizontal_rel_vel
+            * self.cfg.descent_horizontal_rel_vel_reward_scale
+            * self.step_dt,
+            "near_pad_horizontal_rel_vel": near_pad_horizontal_rel_vel
+            * self.cfg.near_pad_horizontal_rel_vel_reward_scale
+            * self.step_dt,
+            "predicted_pad_error": predicted_pad_error * self.cfg.predicted_pad_error_reward_scale * self.step_dt,
+            "contact_clearance": contact_clearance * self.cfg.contact_clearance_reward_scale * self.step_dt,
             "align_bonus": terms["align_candidate"].float() * self.cfg.align_bonus * self.step_dt,
             "align_hold": self._align_success.float() * self.cfg.align_hold_reward_scale * self.step_dt,
             "landing_bonus": self._landing_success.float() * self.cfg.landing_bonus,
@@ -357,9 +448,32 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         terminated = self._crash | self._landing_success
         return terminated, time_out
 
+    def _latch_terminal_state(self, env_ids: torch.Tensor):
+        """Capture terminal state before DirectRLEnv's automatic reset mutates live simulation tensors."""
+        robot_pos_w = self._robot.data.root_pos_w[env_ids]
+        robot_lin_vel_w = self._robot.data.root_lin_vel_w[env_ids]
+        pad_pos_w = self._pad_pos_w[env_ids]
+        pad_vel_w = self._pad_vel_w[env_ids]
+        pad_surface_height_w = pad_pos_w[:, 2] + 0.5 * self.cfg.pad_thickness
+        robot_bottom_height_w = robot_pos_w[:, 2] - self.cfg.robot_landing_surface_offset
+
+        self._terminal_state_valid[env_ids] = True
+        self._terminal_terminated[env_ids] = self.reset_terminated[env_ids]
+        self._terminal_time_out[env_ids] = self.reset_time_outs[env_ids]
+        self._terminal_robot_pos_w[env_ids] = robot_pos_w
+        self._terminal_robot_lin_vel_w[env_ids] = robot_lin_vel_w
+        self._terminal_robot_ang_vel_w[env_ids] = self._robot.data.root_ang_vel_w[env_ids]
+        self._terminal_pad_pos_w[env_ids] = pad_pos_w
+        self._terminal_pad_vel_w[env_ids] = pad_vel_w
+        self._terminal_relative_vel_w[env_ids] = robot_lin_vel_w - pad_vel_w
+        self._terminal_horizontal_error[env_ids] = torch.linalg.norm(pad_pos_w[:, :2] - robot_pos_w[:, :2], dim=1)
+        self._terminal_surface_clearance[env_ids] = robot_bottom_height_w - pad_surface_height_w
+
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self._robot._ALL_INDICES
+
+        self._latch_terminal_state(env_ids)
 
         # Logging
         final_distance_to_pad = torch.linalg.norm(
@@ -419,11 +533,14 @@ class QuadcopterShipLandingEnv(DirectRLEnv):
         default_root_state = self._robot.data.default_root_state[env_ids]
         default_root_state[:, :3] += self._terrain.env_origins[env_ids]
 
-        pad_xy = torch.zeros_like(self._pad_pos_w[env_ids, :2]).uniform_(-1.0, 1.0)
+        pad_xy = torch.zeros_like(self._pad_pos_w[env_ids, :2]).uniform_(-0.5, 0.5)
         pad_xy += self._terrain.env_origins[env_ids, :2]
         self._pad_pos_w[env_ids, :2] = pad_xy
         self._pad_pos_w[env_ids, 2] = 0.05
         self._pad_vel_w[env_ids] = 0.0
+        self._pad_vel_w[env_ids, :2] = torch.zeros_like(self._pad_vel_w[env_ids, :2]).uniform_(
+            -self.cfg.pad_velocity_xy_range, self.cfg.pad_velocity_xy_range
+        )
         default_root_state[:, 0:2] = (
             self._pad_pos_w[env_ids, 0:2] + torch.zeros_like(pad_xy).uniform_(-0.6, 0.6)
         )

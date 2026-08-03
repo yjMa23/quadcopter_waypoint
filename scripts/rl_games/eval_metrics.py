@@ -17,6 +17,7 @@ import random
 import sys
 from pathlib import Path
 
+from eval_metrics_utils import PAD_SPEED_BUCKETS, mean_or_nan, pad_speed_bucket, percentile_or_nan
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
@@ -158,6 +159,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         hasattr(task_env, name)
         for name in ("_landing_success", "_landing_touchdown_distance", "_landing_touchdown_rel_vel", "_crash")
     )
+    physical_deck = ship_landing and all(
+        hasattr(task_env, name)
+        for name in (
+            "_last_successful_settle",
+            "_last_deck_contact",
+            "_last_hard_contact",
+            "_last_ground_crash",
+            "_last_deck_miss",
+        )
+    )
     episode_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_strict_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_stable_hover = torch.zeros(num_envs, dtype=torch.bool, device=device)
@@ -165,8 +176,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     episode_waypoint_count = torch.zeros(num_envs, dtype=torch.long, device=device)
     episode_waypoint_reach_distance_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
     episode_waypoint_reach_lin_vel_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_step_count = torch.zeros(num_envs, dtype=torch.long, device=device)
+    episode_descent_speed_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_max_descent_speed = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_horizontal_speed_sum = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_max_horizontal_speed = torch.zeros(num_envs, dtype=torch.float, device=device)
+    episode_pad_speed = torch.zeros(num_envs, dtype=torch.float, device=device)
+    if ship_landing:
+        episode_pad_speed.copy_(torch.linalg.norm(task_env._pad_vel_w[:, :2], dim=1))
 
-    completed: list[dict[str, float | bool | int]] = []
+    completed: list[dict[str, float | bool | int | str]] = []
     step = 0
 
     while simulation_app.is_running() and len(completed) < args_cli.episodes and step < args_cli.max_steps:
@@ -179,6 +198,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 distance = torch.linalg.norm(task_env._desired_pos_w - task_env._robot.data.root_pos_w, dim=1)
             lin_vel = torch.linalg.norm(task_env._robot.data.root_lin_vel_b, dim=1)
             ang_vel = torch.linalg.norm(task_env._robot.data.root_ang_vel_b, dim=1)
+            if ship_landing:
+                root_lin_vel_w = task_env._robot.data.root_lin_vel_w
+                descent_speed = torch.clamp(-root_lin_vel_w[:, 2], min=0.0)
+                horizontal_speed = torch.linalg.norm(root_lin_vel_w[:, :2] - task_env._pad_vel_w[:, :2], dim=1)
+                episode_step_count += 1
+                episode_descent_speed_sum += descent_speed
+                episode_max_descent_speed = torch.maximum(episode_max_descent_speed, descent_speed)
+                episode_horizontal_speed_sum += horizontal_speed
+                episode_max_horizontal_speed = torch.maximum(episode_max_horizontal_speed, horizontal_speed)
 
             episode_min_distance = torch.minimum(episode_min_distance, distance)
             if not ship_landing:
@@ -208,12 +236,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             dones_tensor = torch.as_tensor(dones, dtype=torch.bool, device=device)
             done_ids = torch.nonzero(dones_tensor, as_tuple=False).squeeze(-1)
             if done_ids.numel() > 0:
-                final_distances = _tensor_to_float_list(distance[done_ids])
-                min_distances = _tensor_to_float_list(episode_min_distance[done_ids])
-                terminated = task_env.reset_terminated[done_ids].detach().cpu().tolist()
-                timed_out = task_env.reset_time_outs[done_ids].detach().cpu().tolist()
-
                 if ship_landing:
+                    terminal_valid = task_env._terminal_state_valid[done_ids]
+                    if not torch.all(terminal_valid):
+                        raise RuntimeError("Ship-landing task did not publish an exact terminal-state latch before reset.")
+
+                    terminal_robot_pos_w = task_env._terminal_robot_pos_w[done_ids]
+                    terminal_robot_lin_vel_w = task_env._terminal_robot_lin_vel_w[done_ids]
+                    terminal_pad_pos_w = task_env._terminal_pad_pos_w[done_ids]
+                    terminal_pad_vel_w = task_env._terminal_pad_vel_w[done_ids]
+                    terminal_relative_vel_w = task_env._terminal_relative_vel_w[done_ids]
+                    terminal_distances = torch.linalg.norm(terminal_pad_pos_w - terminal_robot_pos_w, dim=1)
+                    final_distances = _tensor_to_float_list(terminal_distances)
+                    min_distances = _tensor_to_float_list(
+                        torch.minimum(episode_min_distance[done_ids], terminal_distances)
+                    )
+                    terminated = task_env._terminal_terminated[done_ids].detach().cpu().tolist()
+                    timed_out = task_env._terminal_time_out[done_ids].detach().cpu().tolist()
                     align_successes = getattr(task_env, "_last_align_success", task_env._landing_success)[
                         done_ids
                     ].detach().cpu().tolist()
@@ -231,7 +270,55 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                         ]
                     )
                     crashes = getattr(task_env, "_last_crash", task_env._crash)[done_ids].detach().cpu().tolist()
+                    step_counts = episode_step_count[done_ids].clamp_min(1)
+                    landing_times = _tensor_to_float_list(step_counts.float() * task_env.step_dt)
+                    max_descent_speeds = _tensor_to_float_list(episode_max_descent_speed[done_ids])
+                    mean_descent_speeds = _tensor_to_float_list(episode_descent_speed_sum[done_ids] / step_counts)
+                    max_horizontal_speeds = _tensor_to_float_list(episode_max_horizontal_speed[done_ids])
+                    mean_horizontal_speeds = _tensor_to_float_list(episode_horizontal_speed_sum[done_ids] / step_counts)
+                    final_vertical_speeds = _tensor_to_float_list(terminal_robot_lin_vel_w[:, 2])
+                    final_horizontal_speeds = _tensor_to_float_list(
+                        torch.linalg.norm(terminal_relative_vel_w[:, :2], dim=1)
+                    )
+                    terminal_vertical_relative_speeds = _tensor_to_float_list(terminal_relative_vel_w[:, 2])
+                    terminal_relative_speeds = _tensor_to_float_list(torch.linalg.norm(terminal_relative_vel_w, dim=1))
+                    terminal_surface_clearances = _tensor_to_float_list(
+                        task_env._terminal_surface_clearance[done_ids]
+                    )
+                    terminal_horizontal_errors = _tensor_to_float_list(
+                        task_env._terminal_horizontal_error[done_ids]
+                    )
+                    terminal_pad_vertical_speeds = _tensor_to_float_list(terminal_pad_vel_w[:, 2])
+                    pad_speeds = _tensor_to_float_list(torch.linalg.norm(terminal_pad_vel_w[:, :2], dim=1))
+                    pad_speed_buckets = [pad_speed_bucket(speed) for speed in pad_speeds]
+                    if physical_deck:
+                        contact_successes = task_env._last_deck_contact[done_ids].detach().cpu().tolist()
+                        settled_landings = task_env._last_successful_settle[done_ids].detach().cpu().tolist()
+                        hard_contacts = task_env._last_hard_contact[done_ids].detach().cpu().tolist()
+                        ground_crashes = task_env._last_ground_crash[done_ids].detach().cpu().tolist()
+                        deck_misses = task_env._last_deck_miss[done_ids].detach().cpu().tolist()
+                        first_contact_seen = task_env._last_first_contact_seen[done_ids].detach().cpu().tolist()
+                        first_contact_xy_errors = _tensor_to_float_list(
+                            task_env._last_first_contact_xy_error[done_ids]
+                        )
+                        first_contact_normal_rel_speeds = _tensor_to_float_list(
+                            task_env._last_first_contact_normal_rel_speed[done_ids]
+                        )
+                        first_contact_tangential_rel_speeds = _tensor_to_float_list(
+                            task_env._last_first_contact_tangential_rel_speed[done_ids]
+                        )
+                        first_contact_forces = _tensor_to_float_list(task_env._last_first_contact_force[done_ids])
+                        max_contact_forces = _tensor_to_float_list(task_env._last_max_contact_force[done_ids])
+                        settle_times = _tensor_to_float_list(task_env._last_settle_time[done_ids])
+                        minimum_surface_clearances = _tensor_to_float_list(
+                            task_env._last_minimum_surface_clearance[done_ids]
+                        )
+                        maximum_penetrations = _tensor_to_float_list(task_env._last_maximum_penetration[done_ids])
                 else:
+                    final_distances = _tensor_to_float_list(distance[done_ids])
+                    min_distances = _tensor_to_float_list(episode_min_distance[done_ids])
+                    terminated = task_env.reset_terminated[done_ids].detach().cpu().tolist()
+                    timed_out = task_env.reset_time_outs[done_ids].detach().cpu().tolist()
                     final_lin_vels = _tensor_to_float_list(lin_vel[done_ids])
                     final_ang_vels = _tensor_to_float_list(ang_vel[done_ids])
                     successes = episode_success[done_ids].detach().cpu().tolist()
@@ -267,11 +354,47 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                                 "min_distance": min_distances[local_idx],
                                 "touchdown_distance": touchdown_distances[local_idx],
                                 "touchdown_rel_vel": touchdown_rel_vels[local_idx],
+                                "landing_time": landing_times[local_idx],
+                                "max_descent_speed": max_descent_speeds[local_idx],
+                                "mean_descent_speed": mean_descent_speeds[local_idx],
+                                # final_vertical_speed is the robot's terminal world-z velocity. Relative fields
+                                # are computed against the terminal pad velocity in the world/deck-normal frame.
+                                "final_vertical_speed": final_vertical_speeds[local_idx],
+                                "terminal_vertical_relative_speed": terminal_vertical_relative_speeds[local_idx],
+                                "terminal_relative_speed": terminal_relative_speeds[local_idx],
+                                "terminal_horizontal_error": terminal_horizontal_errors[local_idx],
+                                "terminal_surface_clearance": terminal_surface_clearances[local_idx],
+                                "terminal_pad_vertical_speed": terminal_pad_vertical_speeds[local_idx],
+                                "max_horizontal_speed": max_horizontal_speeds[local_idx],
+                                "mean_horizontal_speed": mean_horizontal_speeds[local_idx],
+                                "final_horizontal_speed": final_horizontal_speeds[local_idx],
+                                "pad_speed": pad_speeds[local_idx],
+                                "pad_speed_bucket": pad_speed_buckets[local_idx],
                                 "crash": bool(crashes[local_idx]),
                                 "terminated": bool(terminated[local_idx]),
                                 "time_out": bool(timed_out[local_idx]),
                             }
                         )
+                        if physical_deck:
+                            completed[-1].update(
+                                {
+                                    "contact_success": bool(contact_successes[local_idx]),
+                                    "settled_landing": bool(settled_landings[local_idx]),
+                                    "hard_contact": bool(hard_contacts[local_idx]),
+                                    "ground_crash": bool(ground_crashes[local_idx]),
+                                    "deck_miss": bool(deck_misses[local_idx]),
+                                    "first_contact_seen": bool(first_contact_seen[local_idx]),
+                                    "first_contact_xy_error_deck_frame": first_contact_xy_errors[local_idx],
+                                    "first_contact_normal_rel_speed": first_contact_normal_rel_speeds[local_idx],
+                                    "first_contact_tangential_rel_speed": first_contact_tangential_rel_speeds[local_idx],
+                                    "first_contact_force": first_contact_forces[local_idx],
+                                    "max_contact_force": max_contact_forces[local_idx],
+                                    "settle_time": settle_times[local_idx],
+                                    "terminal_xy_error": terminal_horizontal_errors[local_idx],
+                                    "minimum_surface_clearance": minimum_surface_clearances[local_idx],
+                                    "maximum_penetration": maximum_penetrations[local_idx],
+                                }
+                            )
                     else:
                         completed.append({
                             "episode": len(completed),
@@ -298,6 +421,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 episode_waypoint_count[done_ids] = 0
                 episode_waypoint_reach_distance_sum[done_ids] = 0.0
                 episode_waypoint_reach_lin_vel_sum[done_ids] = 0.0
+                episode_step_count[done_ids] = 0
+                episode_descent_speed_sum[done_ids] = 0.0
+                episode_max_descent_speed[done_ids] = 0.0
+                episode_horizontal_speed_sum[done_ids] = 0.0
+                episode_max_horizontal_speed[done_ids] = 0.0
+                if ship_landing:
+                    episode_pad_speed[done_ids] = torch.linalg.norm(task_env._pad_vel_w[done_ids, :2], dim=1)
 
                 if agent.is_rnn and agent.states is not None:
                     for state in agent.states:
@@ -317,11 +447,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     def rate(key: str) -> float:
         return sum(1.0 for ep in completed if bool(ep[key])) / len(completed)
 
+    def success_values(key: str) -> list[float]:
+        return [float(ep[key]) for ep in completed if bool(ep["success"])]
+
     def success_mean(key: str) -> float:
-        values = [float(ep[key]) for ep in completed if bool(ep["success"])]
-        if not values:
-            return float("nan")
-        return sum(values) / len(values)
+        return mean_or_nan(success_values(key))
 
     def waypoint_event_mean(key: str) -> float:
         waypoint_count = sum(int(ep["waypoint_count"]) for ep in completed)
@@ -340,9 +470,81 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print(f"landing_success_rate: {rate('success'):.4f}")
         print(f"mean_final_distance: {mean('final_distance'):.4f} m")
         print(f"mean_min_distance: {mean('min_distance'):.4f} m")
-        print(f"mean_touchdown_distance: {success_mean('touchdown_distance'):.4f} m")
+        touchdown_distances = success_values("touchdown_distance")
+        print(f"mean_touchdown_distance: {mean_or_nan(touchdown_distances):.4f} m")
+        print(f"touchdown_distance_P50: {percentile_or_nan(touchdown_distances, 50.0):.4f} m")
+        print(f"touchdown_distance_P90: {percentile_or_nan(touchdown_distances, 90.0):.4f} m")
+        print(f"touchdown_distance_P95: {percentile_or_nan(touchdown_distances, 95.0):.4f} m")
         print(f"mean_touchdown_rel_vel: {success_mean('touchdown_rel_vel'):.4f} m/s")
+        print(f"mean_landing_time: {success_mean('landing_time'):.4f} s")
+        print(f"mean_max_descent_speed: {success_mean('max_descent_speed'):.4f} m/s")
+        print(f"mean_descent_speed: {success_mean('mean_descent_speed'):.4f} m/s")
+        print(f"mean_final_vertical_speed: {success_mean('final_vertical_speed'):.4f} m/s")
+        print(
+            f"mean_terminal_vertical_relative_speed: "
+            f"{success_mean('terminal_vertical_relative_speed'):.4f} m/s"
+        )
+        print(f"mean_terminal_relative_speed: {success_mean('terminal_relative_speed'):.4f} m/s")
+        print(f"mean_terminal_surface_clearance: {success_mean('terminal_surface_clearance'):.4f} m")
+        print(f"mean_max_horizontal_speed: {success_mean('max_horizontal_speed'):.4f} m/s")
+        print(f"mean_horizontal_speed: {success_mean('mean_horizontal_speed'):.4f} m/s")
+        print(f"mean_final_horizontal_speed: {success_mean('final_horizontal_speed'):.4f} m/s")
+        print(f"mean_pad_speed: {mean('pad_speed'):.4f} m/s")
         print(f"crash_rate: {rate('crash'):.4f}")
+        if physical_deck:
+            successful_first_contact_xy = [
+                float(ep["first_contact_xy_error_deck_frame"])
+                for ep in completed
+                if bool(ep["success"]) and bool(ep["first_contact_seen"])
+            ]
+            all_first_contact_xy = [
+                float(ep["first_contact_xy_error_deck_frame"])
+                for ep in completed
+                if bool(ep["first_contact_seen"])
+            ]
+            print(f"contact_success_rate: {rate('contact_success'):.4f}")
+            print(f"settled_landing_rate: {rate('settled_landing'):.4f}")
+            print(f"hard_contact_rate: {rate('hard_contact'):.4f}")
+            print(f"ground_crash_rate: {rate('ground_crash'):.4f}")
+            print(f"deck_miss_rate: {rate('deck_miss'):.4f}")
+            print(
+                f"successful_first_contact_xy_error_deck_frame_P95: "
+                f"{percentile_or_nan(successful_first_contact_xy, 95.0):.4f} m"
+            )
+            print(
+                f"all_contact_first_contact_xy_error_deck_frame_P95: "
+                f"{percentile_or_nan(all_first_contact_xy, 95.0):.4f} m"
+            )
+            print(f"mean_first_contact_normal_rel_speed: {success_mean('first_contact_normal_rel_speed'):.4f} m/s")
+            print(
+                f"mean_first_contact_tangential_rel_speed: "
+                f"{success_mean('first_contact_tangential_rel_speed'):.4f} m/s"
+            )
+            print(f"mean_max_contact_force: {success_mean('max_contact_force'):.4f} N")
+            print(f"mean_settle_time: {success_mean('settle_time'):.4f} s")
+            print(f"mean_maximum_penetration: {success_mean('maximum_penetration'):.4f} m")
+        print("pad_speed_buckets:")
+        for bucket in PAD_SPEED_BUCKETS:
+            bucket_eps = [ep for ep in completed if ep.get("pad_speed_bucket") == bucket]
+            if not bucket_eps:
+                continue
+            bucket_successes = [ep for ep in bucket_eps if bool(ep["success"])]
+            bucket_success_rate = len(bucket_successes) / len(bucket_eps)
+            if bucket_successes:
+                bucket_touchdown_distance = sum(float(ep["touchdown_distance"]) for ep in bucket_successes) / len(
+                    bucket_successes
+                )
+                bucket_touchdown_rel_vel = sum(float(ep["touchdown_rel_vel"]) for ep in bucket_successes) / len(
+                    bucket_successes
+                )
+            else:
+                bucket_touchdown_distance = float("nan")
+                bucket_touchdown_rel_vel = float("nan")
+            print(
+                f"  {bucket}: n={len(bucket_eps)}, success_rate={bucket_success_rate:.4f}, "
+                f"mean_touchdown_distance={bucket_touchdown_distance:.4f} m, "
+                f"mean_touchdown_rel_vel={bucket_touchdown_rel_vel:.4f} m/s"
+            )
     elif continuous_waypoint:
         print(f"waypoint_episode_success_rate: {rate('success'):.4f}")
         print(f"mean_waypoints_per_episode: {mean('waypoint_count'):.4f}")
