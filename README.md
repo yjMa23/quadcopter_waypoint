@@ -83,6 +83,28 @@ split policy: whole episode, 80% / 10% / 10%
 
 本地大文件与哈希记录在 benchmark 中；原始 shard、checkpoint、TensorBoard 和视频不提交 Git。
 
+## P8A 周期 checkpoint 选模与 policy drift
+
+P8A 不重新训练，也不修改冻结的 P6C 环境语义。它扫描现有 BC+PPO 周期 checkpoint，使用 validation settled landing 选模，并在独立 test seeds 上比较 teacher、BC、metric-selected BC+PPO 和原 reward-selected BC+PPO。
+
+| 方法 | settled landing | deck miss | hard contact | touchdown distance |
+| --- | ---: | ---: | ---: | ---: |
+| frozen PPO teacher | 94.66% ± 2.58% | 5.34% | 0.13% | 0.0585 m |
+| BC epoch 0 | 86.20% ± 1.29% | 13.80% | 0.00% | 0.0588 m |
+| metric-selected BC+PPO | 91.67% ± 3.03% | 8.33% | 0.30% | 0.0569 m |
+| reward-selected BC+PPO | 78.08% ± 8.66% | 21.57% | 1.00% | 0.0684 m |
+
+三个训练 seed 的 validation 最优 checkpoint 均为 epoch 10；原 reward-selected checkpoint 分别为 epoch 130、21、75。metric-selected BC+PPO 在独立 test 上比 BC 高 5.47 个百分点，属于 P8A 情况 A，但仍未达到 92%。action drift 与 settled landing/deck miss 呈中等统计关联，不作严格因果解释。进一步提升建议采用 actor-preserving PPO，而不是修改冻结环境 reward。
+
+完整结果：
+
+```text
+benchmarks/phase8a_checkpoint_selection/README.md
+benchmarks/phase8a_checkpoint_selection/summary.json
+benchmarks/phase8a_checkpoint_selection/comparison.md
+benchmarks/phase8a_checkpoint_selection/checkpoint_drift.json
+```
+
 ## 项目索引
 
 ```text
@@ -91,7 +113,8 @@ split policy: whole episode, 80% / 10% / 10%
 │   ├── phase6a_heave_precision/
 │   ├── phase6b_physical_deck/
 │   ├── phase6c_physical_deck_attitude/
-│   └── phase7_imitation_hybrid/
+│   ├── phase7_imitation_hybrid/
+│   └── phase8a_checkpoint_selection/
 ├── docs/
 │   ├── README.md
 │   ├── p7_imitation_hybrid_paper.md
@@ -114,6 +137,7 @@ split policy: whole episode, 80% / 10% / 10%
 | P7 理论 | 论文式建模、算法、公式、实验与代码映射 | `docs/p7_imitation_hybrid_paper.md` |
 | P7 证据 | 专家数据、BC、BC+PPO benchmark | `benchmarks/phase7_imitation_hybrid/README.md` |
 | P7 面试 | 可使用表述、证据和失败归因 | `docs/interview_p7_evidence.md` |
+| P8A | 周期 checkpoint 指标选模与 policy drift 诊断 | `benchmarks/phase8a_checkpoint_selection/README.md` |
 | Display/GUI | 默认 display、headless、SSH、tmux、Docker | `docs/runtime_display_troubleshooting.md` |
 | imitation scripts | 采集、训练、迁移、汇总 | `scripts/imitation/README.md` |
 | rl_games scripts | PPO 训练、播放、闭环评估 | `scripts/rl_games/README.md` |
@@ -179,6 +203,12 @@ P7 完整命令：
 benchmarks/phase7_imitation_hybrid/commands.txt
 ```
 
+P8A 扫描、选模、正式测试和 drift 复现命令：
+
+```text
+benchmarks/phase8a_checkpoint_selection/commands.txt
+```
+
 ## 文档同步检查
 
 单独检查论文参数与代码一致性：
@@ -203,6 +233,6 @@ docs/runtime_display_troubleshooting.md
 
 - demonstration 仅保留 teacher 成功回合，off-distribution recovery 覆盖不足。
 - PPO critic 从随机值头开始，在线更新容易破坏已经较强的 BC actor。
-- 当前 checkpoint 选择依据仍是公共训练循环的 mean episode reward，并不完全等价于 settled landing。
+- P7 原 checkpoint 选择依据是公共训练循环的 mean episode reward；P8A 已证明它与 settled landing 最优 checkpoint 不一致。
 - 当前运动分布不包含 yaw、随机波谱、水动力或完整船舶六自由度运动。
 - 当前会话没有可用交互 display；已保存 teacher、BC、BC+PPO 成功轨迹和代表性 timeout 失败轨迹，但未声称完成人工 GUI 目视验收。

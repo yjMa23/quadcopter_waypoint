@@ -1,0 +1,338 @@
+{
+  "answers": {
+    "actor_preserving_ppo_recommended_for_further_improvement": true,
+    "checkpoint_reselection_sufficient_for_positive_p8a": true,
+    "decision_case": "A",
+    "degradation_timing": "The first available periodic snapshot is epoch 10, not the first PPO update. Epoch-10 results quantify whether degradation was already present by the earliest saved checkpoint.",
+    "existing_periodic_checkpoint_clearly_exceeds_bc": true,
+    "first_saved_checkpoint_vs_bc": [
+      {
+        "action_mse_vs_bc": 0.0006123031489551067,
+        "delta_vs_bc": -0.078125,
+        "epoch": 10,
+        "settled_landing_rate": 0.859375,
+        "train_seed": 42
+      },
+      {
+        "action_mse_vs_bc": 0.0006497383001260459,
+        "delta_vs_bc": 0.015625,
+        "epoch": 10,
+        "settled_landing_rate": 0.953125,
+        "train_seed": 43
+      },
+      {
+        "action_mse_vs_bc": 0.0009177738102152944,
+        "delta_vs_bc": 0.0,
+        "epoch": 10,
+        "settled_landing_rate": 0.9375,
+        "train_seed": 44
+      }
+    ],
+    "metric_selected_hard_contact_change_percentage_points": 0.3038194444444445,
+    "metric_selected_improvement_over_bc_percentage_points": 5.46875,
+    "metric_selected_reaches_90_percent": true,
+    "metric_selected_reaches_92_percent": false,
+    "policy_drift_has_clear_statistical_association": false,
+    "reward_and_settled_selection_are_consistent": false
+  },
+  "benchmark": "P8A periodic checkpoint selection and policy drift diagnosis",
+  "checkpoint_selection": {
+    "all_reward_selected_equal_metric_selected": false,
+    "best_evaluated_bc_ppo_test": {
+      "actor_sha256": "317c1054c5830684d5f28e2d8a89f06b561bddfa78fa63c4ad91270b0d0c0784",
+      "checkpoint_path": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed43/nn/last_p7_bc_ppo_ep_10_rew_54.10159.pth",
+      "checkpoint_sha256": "d1c94b152d9ef24d4a5631e8e34bcb117437416b06e9ff15b88cf3df248ce192",
+      "contact_success_rate": 0.9856770833333334,
+      "contact_success_rate_std": 0.006639348324990605,
+      "deck_miss_rate": 0.057291666666666664,
+      "deck_miss_rate_std": 0.0018414239093399675,
+      "episodes": 768,
+      "episodes_per_seed": 256,
+      "epoch": 10,
+      "eval_seeds": [
+        245,
+        246,
+        247
+      ],
+      "hard_contact_rate": 0.00390625,
+      "hard_contact_rate_std": 0.0,
+      "kind": "periodic",
+      "settled_landing_rate": 0.9427083333333334,
+      "settled_landing_rate_std": 0.0018414239093399675,
+      "timeout_rate": 0.0,
+      "timeout_rate_std": 0.0,
+      "touchdown_distance_mean_m": 0.05513249130151096,
+      "touchdown_distance_mean_m_std": 0.0005548437171699006,
+      "train_seed": 43,
+      "training_reward": 54.10159
+    },
+    "best_periodic_validation": {
+      "actor_sha256": "317c1054c5830684d5f28e2d8a89f06b561bddfa78fa63c4ad91270b0d0c0784",
+      "checkpoint_path": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed43/nn/last_p7_bc_ppo_ep_10_rew_54.10159.pth",
+      "checkpoint_sha256": "d1c94b152d9ef24d4a5631e8e34bcb117437416b06e9ff15b88cf3df248ce192",
+      "contact_success_rate": 0.9765625,
+      "contact_success_rate_std": 0.02780489128133154,
+      "deck_miss_rate": 0.0859375,
+      "deck_miss_rate_std": 0.0229993772560621,
+      "episodes": 384,
+      "episodes_per_seed": 128,
+      "epoch": 10,
+      "eval_seeds": [
+        145,
+        146,
+        147
+      ],
+      "hard_contact_rate": 0.005208333333333333,
+      "hard_contact_rate_std": 0.00736569563735987,
+      "kind": "periodic",
+      "settled_landing_rate": 0.9140625,
+      "settled_landing_rate_std": 0.0229993772560621,
+      "timeout_rate": 0.0,
+      "timeout_rate_std": 0.0,
+      "touchdown_distance_mean_m": 0.05854316982884244,
+      "touchdown_distance_mean_m_std": 0.00100168396835523,
+      "train_seed": 43,
+      "training_reward": 54.10159
+    },
+    "reward_vs_metric_selected": {
+      "42": {
+        "metric_selected_epoch": 10,
+        "reward_selected_epoch": 130,
+        "same_actor_sha256": false,
+        "same_checkpoint_sha256": false
+      },
+      "43": {
+        "metric_selected_epoch": 10,
+        "reward_selected_epoch": 21,
+        "same_actor_sha256": false,
+        "same_checkpoint_sha256": false
+      },
+      "44": {
+        "metric_selected_epoch": 10,
+        "reward_selected_epoch": 75,
+        "same_actor_sha256": false,
+        "same_checkpoint_sha256": false
+      }
+    },
+    "validation_selected": {
+      "42": {
+        "actor_sha256": "b625d7cd9ac59fcaf1e45843f47fc8713efd93d01d794536ecdb5d5f7e3f7198",
+        "checkpoint_path": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed42/nn/last_p7_bc_ppo_ep_10_rew_51.82845.pth",
+        "checkpoint_sha256": "f2e28556cbee69d6e344ea380e57c9e1f9bbe11b75f35746a0082cdaabb34e77",
+        "contact_success_rate": 0.9973958333333334,
+        "contact_success_rate_std": 0.003682847818679935,
+        "deck_miss_rate": 0.09895833333333333,
+        "deck_miss_rate_std": 0.009743899444723805,
+        "episodes": 384,
+        "episodes_per_seed": 128,
+        "epoch": 10,
+        "eval_seeds": [
+          145,
+          146,
+          147
+        ],
+        "hard_contact_rate": 0.0,
+        "hard_contact_rate_std": 0.0,
+        "kind": "periodic",
+        "settled_landing_rate": 0.9010416666666666,
+        "settled_landing_rate_std": 0.009743899444723805,
+        "timeout_rate": 0.0,
+        "timeout_rate_std": 0.0,
+        "touchdown_distance_mean_m": 0.05461112096388152,
+        "touchdown_distance_mean_m_std": 0.0013542227221311734,
+        "train_seed": 42,
+        "training_reward": 51.82845
+      },
+      "43": {
+        "actor_sha256": "317c1054c5830684d5f28e2d8a89f06b561bddfa78fa63c4ad91270b0d0c0784",
+        "checkpoint_path": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed43/nn/last_p7_bc_ppo_ep_10_rew_54.10159.pth",
+        "checkpoint_sha256": "d1c94b152d9ef24d4a5631e8e34bcb117437416b06e9ff15b88cf3df248ce192",
+        "contact_success_rate": 0.9765625,
+        "contact_success_rate_std": 0.02780489128133154,
+        "deck_miss_rate": 0.0859375,
+        "deck_miss_rate_std": 0.0229993772560621,
+        "episodes": 384,
+        "episodes_per_seed": 128,
+        "epoch": 10,
+        "eval_seeds": [
+          145,
+          146,
+          147
+        ],
+        "hard_contact_rate": 0.005208333333333333,
+        "hard_contact_rate_std": 0.00736569563735987,
+        "kind": "periodic",
+        "settled_landing_rate": 0.9140625,
+        "settled_landing_rate_std": 0.0229993772560621,
+        "timeout_rate": 0.0,
+        "timeout_rate_std": 0.0,
+        "touchdown_distance_mean_m": 0.05854316982884244,
+        "touchdown_distance_mean_m_std": 0.00100168396835523,
+        "train_seed": 43,
+        "training_reward": 54.10159
+      },
+      "44": {
+        "actor_sha256": "485c77caadc77ca54c44222f89f1d71b847d752fa5606a12abade45645fb96bc",
+        "checkpoint_path": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_bc_ppo/seed44/nn/last_p7_bc_ppo_ep_10_rew_43.496197.pth",
+        "checkpoint_sha256": "1b51b05a621e3137d72c37071a1b841ad9b6206c30c526591fc2de4dcf64cd49",
+        "contact_success_rate": 1.0,
+        "contact_success_rate_std": 0.0,
+        "deck_miss_rate": 0.09375,
+        "deck_miss_rate_std": 0.00637887953849786,
+        "episodes": 384,
+        "episodes_per_seed": 128,
+        "epoch": 10,
+        "eval_seeds": [
+          145,
+          146,
+          147
+        ],
+        "hard_contact_rate": 0.0,
+        "hard_contact_rate_std": 0.0,
+        "kind": "periodic",
+        "settled_landing_rate": 0.90625,
+        "settled_landing_rate_std": 0.00637887953849786,
+        "timeout_rate": 0.0,
+        "timeout_rate_std": 0.0,
+        "touchdown_distance_mean_m": 0.06423046091434967,
+        "touchdown_distance_mean_m_std": 0.002295307657807111,
+        "train_seed": 44,
+        "training_reward": 43.496197
+      }
+    }
+  },
+  "drift_analysis": {
+    "bc_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/p7_bc/bc_init_rlgames.pth",
+    "bc_checkpoint_sha256": "0669022b8b88af22a3ef3a3baebdd1d3c32c26ff0095ef9e2a2498b3e3aa7517",
+    "dataset_manifest": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/p7_expert_dataset/manifest.json",
+    "dataset_manifest_sha256": "72847f6c9bb6f6c2c10d2f9862dd894ccd91c5ecb69bbbe948120a0ab8f64744",
+    "deterministic_action": "checkpoint-specific RL-Games normalization, actor mean, then [-1, 1] clamp",
+    "split": "test",
+    "transitions": 51901
+  },
+  "execution": {
+    "canonical_policies": 64,
+    "closed_loop_episodes_total": 17536,
+    "drift_checkpoints": 64,
+    "drift_test_transitions_per_checkpoint": 51901,
+    "formal_episodes": 6144,
+    "formal_evaluations": 24,
+    "physical_checkpoint_files": 67,
+    "screening_episodes": 4096,
+    "screening_evaluations": 64,
+    "validation_episodes": 7296,
+    "validation_evaluations": 57
+  },
+  "formal_comparison": {
+    "BC epoch 0": {
+      "checkpoints": 1,
+      "contact_success_rate": 0.9947916666666666,
+      "contact_success_rate_std": 0.0018414239093399675,
+      "deck_miss_rate": 0.13802083333333334,
+      "deck_miss_rate_std": 0.012889967365379772,
+      "episodes": 768,
+      "eval_seeds": [
+        245,
+        246,
+        247
+      ],
+      "evaluations": 3,
+      "ground_crash_rate": 0.0,
+      "ground_crash_rate_std": 0.0,
+      "hard_contact_rate": 0.0,
+      "hard_contact_rate_std": 0.0,
+      "settled_landing_rate": 0.8619791666666666,
+      "settled_landing_rate_std": 0.012889967365379772,
+      "timeout_rate": 0.0,
+      "timeout_rate_std": 0.0,
+      "touchdown_distance_mean_m": 0.05875615446150836,
+      "touchdown_distance_mean_m_std": 0.0019779690951260884
+    },
+    "frozen PPO teacher": {
+      "checkpoints": 1,
+      "contact_success_rate": 1.0,
+      "contact_success_rate_std": 0.0,
+      "deck_miss_rate": 0.053385416666666664,
+      "deck_miss_rate_std": 0.025779934730759544,
+      "episodes": 768,
+      "eval_seeds": [
+        245,
+        246,
+        247
+      ],
+      "evaluations": 3,
+      "ground_crash_rate": 0.0,
+      "ground_crash_rate_std": 0.0,
+      "hard_contact_rate": 0.0013020833333333333,
+      "hard_contact_rate_std": 0.0018414239093399675,
+      "settled_landing_rate": 0.9466145833333334,
+      "settled_landing_rate_std": 0.025779934730759544,
+      "timeout_rate": 0.0,
+      "timeout_rate_std": 0.0,
+      "touchdown_distance_mean_m": 0.058483937467943475,
+      "touchdown_distance_mean_m_std": 0.0003905354713503466
+    },
+    "metric-selected BC+PPO": {
+      "checkpoints": 3,
+      "contact_success_rate": 0.9934895833333334,
+      "contact_success_rate_std": 0.007131804134181851,
+      "deck_miss_rate": 0.08333333333333333,
+      "deck_miss_rate_std": 0.030313663351101083,
+      "episodes": 2304,
+      "eval_seeds": [
+        245,
+        246,
+        247
+      ],
+      "evaluations": 9,
+      "ground_crash_rate": 0.0,
+      "ground_crash_rate_std": 0.0,
+      "hard_contact_rate": 0.0030381944444444445,
+      "hard_contact_rate_std": 0.0024552318791199565,
+      "settled_landing_rate": 0.9166666666666666,
+      "settled_landing_rate_std": 0.030313663351101083,
+      "timeout_rate": 0.0,
+      "timeout_rate_std": 0.0,
+      "touchdown_distance_mean_m": 0.05688590181682044,
+      "touchdown_distance_mean_m_std": 0.0032608078764498885
+    },
+    "reward-selected BC+PPO": {
+      "checkpoints": 3,
+      "contact_success_rate": 0.9618055555555556,
+      "contact_success_rate_std": 0.021298340531918918,
+      "deck_miss_rate": 0.21571180555555555,
+      "deck_miss_rate_std": 0.08343048084523041,
+      "episodes": 2304,
+      "eval_seeds": [
+        245,
+        246,
+        247
+      ],
+      "evaluations": 9,
+      "ground_crash_rate": 0.0,
+      "ground_crash_rate_std": 0.0,
+      "hard_contact_rate": 0.009982638888888888,
+      "hard_contact_rate_std": 0.006138079697799892,
+      "settled_landing_rate": 0.7808159722222222,
+      "settled_landing_rate_std": 0.08661437280046126,
+      "timeout_rate": 0.0008680555555555555,
+      "timeout_rate_std": 0.001623983240787301,
+      "touchdown_distance_mean_m": 0.06836630901538904,
+      "touchdown_distance_mean_m_std": 0.005246933289856859
+    }
+  },
+  "limitations": [
+    "Checkpoint selection uses validation seeds 145/146/147; test seeds 245/246/247 are used only after selection.",
+    "Policy-drift correlations are observational statistics and do not establish strict causality.",
+    "The earliest periodic checkpoint is epoch 10, so the exact first-update transition is not directly observed.",
+    "P8A does not retrain or modify the frozen P6C environment semantics."
+  ],
+  "policy_drift_correlations": {
+    "association_strength": "moderate",
+    "clear_statistical_association": false,
+    "paired_checkpoints": 64,
+    "pearson_action_drift_vs_deck_miss": 0.5080176148457529,
+    "pearson_action_drift_vs_hard_contact": -0.13386406812710935,
+    "pearson_action_drift_vs_settled_landing": -0.49862429173559364
+  }
+}

@@ -4,6 +4,7 @@
 |---|---|
 | `p7_imitation_hybrid_paper.md` | P7 论文式理论、公式、算法、实验与代码可追溯说明 |
 | `interview_p7_evidence.md` | P7 面试表述、数据证据、失败归因和可使用结论 |
+| `../benchmarks/phase8a_checkpoint_selection/README.md` | P8A 周期 checkpoint 选模、独立测试和 policy drift 诊断 |
 | `runtime_display_troubleshooting.md` | Isaac Sim 默认 display、GUI、SSH、tmux、Docker 和 headless 视频说明 |
 
 ## 文档与代码同步

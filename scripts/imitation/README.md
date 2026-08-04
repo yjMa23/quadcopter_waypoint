@@ -64,9 +64,27 @@ PYTHONPATH=source/quadcopter_waypoint \
 
 Tests cover schema, dtypes/shapes, action bounds, NaN/Inf rejection, episode split leakage, manifest hashes, statistics, observation normalization, actor save/load, BC-to-RL-Games parity, benchmark aggregation, threshold crossing, and paper-to-code parameter synchronization.
 
-Exact formal commands and artifact checksums are generated in:
+Exact P7 formal commands and artifact checksums are generated in:
 
 ```text
 benchmarks/phase7_imitation_hybrid/commands.txt
 benchmarks/phase7_imitation_hybrid/summary.json
+```
+
+## P8A checkpoint selection and drift
+
+P8A reuses the frozen checkpoints and the same formal evaluator; it does not retrain or modify the P6C task.
+
+- `evaluate_checkpoint_sweep.py` builds a SHA256 inventory, calls `eval_metrics.py`, writes per-checkpoint/per-seed CSVs, and atomically records a resumable manifest. A completed entry is reused only when the checkpoint hash and evaluation parameters match.
+- `analyze_checkpoint_drift.py` evaluates checkpoint-specific deterministic mean actions on the frozen P7 test split using each checkpoint's RL-Games observation normalization. It reports action MSE against BC and teacher, per-action MSE, actor parameter distance, and running-statistic drift.
+- `build_phase8a_benchmark.py` performs screening candidate extraction, validation selection with the fixed tie-break rules, independent-test aggregation, plotting, and benchmark generation.
+
+Pure-Python tests cover checkpoint parsing, duplicate actor snapshots, truncated CSV rejection, resume identity, aggregation, metric selection, tie-breaking, and drift calculations without launching Isaac Sim.
+
+P8A generated evidence:
+
+```text
+benchmarks/phase8a_checkpoint_selection/README.md
+benchmarks/phase8a_checkpoint_selection/summary.json
+benchmarks/phase8a_checkpoint_selection/commands.txt
 ```
