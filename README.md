@@ -58,15 +58,18 @@ p6c-physical-deck-attitude-v1
 - 已做一次依据明确的 `1e-5` 保守学习率诊断，聚合 settled 进一步降至 63.67%，因此保留为负结果，不作为主结果。
 - 不能声称“BC+PPO 优于 BC”或“达到 90% 的样本效率优于 PPO-from-scratch”。
 
-完整证据：
+完整证据与理论说明：
 
 ```text
+docs/p7_imitation_hybrid_paper.md
 benchmarks/phase7_imitation_hybrid/README.md
 benchmarks/phase7_imitation_hybrid/summary.json
 benchmarks/phase7_imitation_hybrid/training_runs.json
 benchmarks/phase7_imitation_hybrid/formal_evaluations/
 docs/interview_p7_evidence.md
 ```
+
+其中 `docs/p7_imitation_hybrid_paper.md` 按论文结构给出问题建模、甲板/接触运动学、观测与动作、BC 加权目标、BC→PPO 迁移、PPO 微调公式、实验协议、负结果分析和代码可追溯矩阵。文档顶部的 `CODE_SYNC` 参数块由单元测试与实际源码进行一致性检查。
 
 ## P7 专家数据集
 
@@ -90,7 +93,10 @@ split policy: whole episode, 80% / 10% / 10%
 │   ├── phase6c_physical_deck_attitude/
 │   └── phase7_imitation_hybrid/
 ├── docs/
-│   └── interview_p7_evidence.md
+│   ├── README.md
+│   ├── p7_imitation_hybrid_paper.md
+│   ├── interview_p7_evidence.md
+│   └── runtime_display_troubleshooting.md
 ├── scripts/
 │   ├── imitation/
 │   └── rl_games/
@@ -105,7 +111,10 @@ split policy: whole episode, 80% / 10% / 10%
 | P6A | 升沉平台代理接触 | `benchmarks/phase6a_heave_precision/summary.json` |
 | P6B | 水平实体甲板 | `benchmarks/phase6b_physical_deck/summary.json` |
 | P6C | roll/pitch 实体运动甲板 teacher | `benchmarks/phase6c_physical_deck_attitude/summary.json` |
-| P7 | 专家数据、BC、BC+PPO | `benchmarks/phase7_imitation_hybrid/README.md` |
+| P7 理论 | 论文式建模、算法、公式、实验与代码映射 | `docs/p7_imitation_hybrid_paper.md` |
+| P7 证据 | 专家数据、BC、BC+PPO benchmark | `benchmarks/phase7_imitation_hybrid/README.md` |
+| P7 面试 | 可使用表述、证据和失败归因 | `docs/interview_p7_evidence.md` |
+| Display/GUI | 默认 display、headless、SSH、tmux、Docker | `docs/runtime_display_troubleshooting.md` |
 | imitation scripts | 采集、训练、迁移、汇总 | `scripts/imitation/README.md` |
 | rl_games scripts | PPO 训练、播放、闭环评估 | `scripts/rl_games/README.md` |
 
@@ -133,6 +142,19 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python -m pytest -q tests
 ```
 
+本地图形终端查看 frozen PPO teacher：
+
+```bash
+cd /home/j/Isaac_RL_Projects/quadcopter_waypoint && \
+PYTHONPATH=source/quadcopter_waypoint \
+/home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/play.py \
+  --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
+  --num_envs=1 \
+  --checkpoint=logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_p6b_ep990_16to22.pth
+```
+
+该命令必须在已登录 Ubuntu 桌面的图形终端中执行，不要添加 `--headless`。BC-only、BC+PPO、scratch 的可直接复制命令见 `docs/runtime_display_troubleshooting.md`。
+
 PPO 训练：
 
 ```bash
@@ -157,10 +179,30 @@ P7 完整命令：
 benchmarks/phase7_imitation_hybrid/commands.txt
 ```
 
+## 文档同步检查
+
+单独检查论文参数与代码一致性：
+
+```bash
+PYTHONPATH=source/quadcopter_waypoint \
+/home/j/anaconda3/envs/env_isaaclab/bin/python -m pytest -q \
+  tests/test_p7_documentation_sync.py
+```
+
+## Display 与 GUI
+
+当前自动执行会话中 `DISPLAY`、`WAYLAND_DISPLAY` 和 `XDG_SESSION_TYPE` 均为空，同时不存在 `/tmp/.X11-unix/X0` 与 `~/.Xauthority`。因此 Isaac Sim 无法打开交互式默认 display，但 GPU/Vulkan 和 `--headless` 数值仿真不受影响。
+
+这只说明当前 shell 没有连接桌面显示服务器，并不等价于 headless 模式绝对不能录制 MP4。当前 rollout 脚本仅实现数值轨迹记录；离屏视频需要单独启用渲染和视频 recorder。完整诊断与 GUI 启动方式见：
+
+```text
+docs/runtime_display_troubleshooting.md
+```
+
 ## 当前客观局限
 
 - demonstration 仅保留 teacher 成功回合，off-distribution recovery 覆盖不足。
 - PPO critic 从随机值头开始，在线更新容易破坏已经较强的 BC actor。
 - 当前 checkpoint 选择依据仍是公共训练循环的 mean episode reward，并不完全等价于 settled landing。
 - 当前运动分布不包含 yaw、随机波谱、水动力或完整船舶六自由度运动。
-- 当前机器没有可用 DISPLAY；已保存 teacher、BC、BC+PPO 成功轨迹和代表性 timeout 失败轨迹，但未声称完成人工 GUI/视频验收。
+- 当前会话没有可用交互 display；已保存 teacher、BC、BC+PPO 成功轨迹和代表性 timeout 失败轨迹，但未声称完成人工 GUI 目视验收。

@@ -42,5 +42,5 @@
   "trajectory": "scratch_timeout_failure.npz",
   "trajectory_sha256": "f0ba40f4822ea440c34af67a3ce47cc48dc883aea09ab2a45961dbe61b37a9ee",
   "video_generated": false,
-  "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+  "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
 }

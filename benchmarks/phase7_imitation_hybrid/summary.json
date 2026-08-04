@@ -925,7 +925,7 @@
     "The teacher dataset contains successful episodes only, so recovery behavior after off-distribution mistakes is underrepresented.",
     "The online budget is 1,228,800 environment steps per seed; PPO from scratch did not converge within this budget.",
     "The current motion distribution is xy translation, sinusoidal heave, and roll/pitch up to 5 degrees; it does not cover yaw, wave spectra, hydrodynamics, or full vessel six-DoF motion.",
-    "This headless machine has no usable DISPLAY, so automatic numeric traces are available but human GUI/video acceptance is not claimed."
+    "No interactive display was available and the current rollout recorder is numeric-only, so GUI acceptance and video artifacts are not claimed; headless offscreen video would require a separate render-enabled recorder."
   ],
   "learning_curves": {
     "BC+PPO": [
@@ -1096,7 +1096,7 @@
       "trajectory": "bc_ppo_success.npz",
       "trajectory_sha256": "4524e450d416fa4fbea60b42f655165b9d27c1dc9bba2e7d345abea8acfb09bf",
       "video_generated": false,
-      "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
     },
     "bc_success": {
       "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/p7_bc/bc_init_rlgames.pth",
@@ -1144,7 +1144,7 @@
       "trajectory": "bc_success.npz",
       "trajectory_sha256": "a1e27dc999c3e9298edf4efc1f3a30a60e576751a6bcdaca0703d8e545861c7e",
       "video_generated": false,
-      "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
     },
     "scratch_timeout_failure": {
       "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p7_ppo_scratch/seed42/nn/p7_ppo_scratch.pth",
@@ -1192,7 +1192,7 @@
       "trajectory": "scratch_timeout_failure.npz",
       "trajectory_sha256": "f0ba40f4822ea440c34af67a3ce47cc48dc883aea09ab2a45961dbe61b37a9ee",
       "video_generated": false,
-      "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
     },
     "teacher_success": {
       "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_p6b_ep990_16to22.pth",
@@ -1240,7 +1240,7 @@
       "trajectory": "teacher_success.npz",
       "trajectory_sha256": "28c8c5b981294640a7973db145034d8d6a63169824e17241e692bc2a3565247b",
       "video_generated": false,
-      "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
     }
   },
   "state_based_policy": true,

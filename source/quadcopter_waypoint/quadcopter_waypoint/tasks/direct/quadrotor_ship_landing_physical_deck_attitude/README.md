@@ -22,13 +22,16 @@ P7 does not change this environment's observation, reward, contact, termination,
 uses the frozen P6C checkpoint as a deterministic expert, then compares PPO-from-scratch, Behavior
 Cloning, and BC-initialized PPO under the same task and formal evaluator.
 
-Formal P7 evidence:
+Formal P7 theory and evidence:
 
 ```text
+docs/p7_imitation_hybrid_paper.md
 benchmarks/phase7_imitation_hybrid/summary.json
 benchmarks/phase7_imitation_hybrid/formal_evaluations/
 docs/interview_p7_evidence.md
 ```
+
+The paper-style document derives the deck/contact kinematics, 22-D observation, 4-D action mapping, phase-weighted BC objective, checkpoint migration, PPO fine-tuning objective, evaluation protocol, and measured negative result. Its `CODE_SYNC` block is checked against the current source by `tests/test_p7_documentation_sync.py`.
 
 P7 collected 3976 successful episodes / 540321 transitions. BC-only achieved 88.28% settled landing
 across seeds 42/43/44 (256 episodes each), while the fair BC+PPO run achieved 76.69% and exhibited policy

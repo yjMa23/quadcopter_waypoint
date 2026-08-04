@@ -320,6 +320,12 @@ def main() -> None:
         shutil.copy2(source, target)
         shutil.copy2(metadata_source, metadata_target)
         metadata = _read_json(metadata_source)
+        metadata["video_generated"] = False
+        metadata["video_note"] = (
+            "No interactive display was available. This script records an objective state/action trajectory only; "
+            "headless offscreen video would require a separate render-enabled recorder."
+        )
+        _write_json(metadata_target, metadata)
         metadata["committed_trajectory"] = str(target.relative_to(output))
         metadata["committed_metadata"] = str(metadata_target.relative_to(output))
         rollout_cases[source.stem] = metadata
@@ -434,7 +440,7 @@ def main() -> None:
             "The teacher dataset contains successful episodes only, so recovery behavior after off-distribution mistakes is underrepresented.",
             "The online budget is 1,228,800 environment steps per seed; PPO from scratch did not converge within this budget.",
             "The current motion distribution is xy translation, sinusoidal heave, and roll/pitch up to 5 degrees; it does not cover yaw, wave spectra, hydrodynamics, or full vessel six-DoF motion.",
-            "This headless machine has no usable DISPLAY, so automatic numeric traces are available but human GUI/video acceptance is not claimed.",
+            "No interactive display was available and the current rollout recorder is numeric-only, so GUI acceptance and video artifacts are not claimed; headless offscreen video would require a separate render-enabled recorder.",
         ],
     }
     _write_json(output / "summary.json", summary)
@@ -463,6 +469,18 @@ This directory is generated from raw CSV/JSON artifacts by `scripts/imitation/bu
 The BC-only target was met. The 92% BC+PPO target and the 90% sample-efficiency target were not met. The exact negative result, including the one conservative-learning-rate correction, is retained in `summary.json` and `training_runs.json`.
 
 The current policy is state based. It contains no camera image input and no real visual projection features.
+
+Paper-style formulation, equations, algorithm design, implementation traceability, and discussion:
+
+```text
+docs/p7_imitation_hybrid_paper.md
+```
+
+Interactive display and headless-rendering diagnosis:
+
+```text
+docs/runtime_display_troubleshooting.md
+```
 
 ## Files
 

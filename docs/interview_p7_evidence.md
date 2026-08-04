@@ -1,5 +1,13 @@
 # P7 专家数据、Behavior Cloning 与 BC+PPO 面试证据
 
+完整论文式建模、公式和代码映射见：
+
+```text
+docs/p7_imitation_hybrid_paper.md
+```
+
+本文件侧重面试表述和可核验数字；理论文档侧重问题建模、算法推导、实验设计及实现可追溯性。
+
 ## 1. 问题定义
 
 P7 在冻结的 P6C 实体运动甲板降落任务上比较四种策略：
@@ -209,7 +217,7 @@ benchmarks/phase7_imitation_hybrid/rollout_cases/scratch_timeout_failure.npz
 
 每个 NPZ 包含逐步 raw observation、action、reward、flight phase、机器人/甲板世界坐标位置、姿态和速度；JSON sidecar 保存 checkpoint hash、seed、终止结果和接触指标。
 
-当前 headless Isaac Sim 启动日志明确报告无法打开默认 display，因此没有声称完成人工 GUI 或 MP4 目视验收。客观状态轨迹和复现实验命令已保存。
+当前自动执行 shell 中 `DISPLAY`、`WAYLAND_DISPLAY` 和 `XDG_SESSION_TYPE` 均为空，且不存在本地 X11 socket，因此无法打开交互式 GUI。客观状态轨迹和复现实验命令已保存。这里不能把“无交互 display”误写为“headless 永远无法录制 MP4”；当前未生成视频的直接原因还包括 rollout 脚本只实现了数值轨迹记录，没有实现 render-enabled recorder。完整说明见 `docs/runtime_display_troubleshooting.md`。
 
 ## 10. 局限
 

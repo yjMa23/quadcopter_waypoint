@@ -2,6 +2,14 @@
 
 P7 keeps the frozen P6C task unchanged and adds expert collection, Behavior Cloning (BC), BC-to-RL-Games migration, fair PPO training/evaluation support, benchmark generation, and objective rollout traces.
 
+论文式理论与实现对应关系见：
+
+```text
+docs/p7_imitation_hybrid_paper.md
+```
+
+该文档顶部包含由 `tests/test_p7_documentation_sync.py` 校验的 `CODE_SYNC` 参数快照，确保网络、归一化、动作缩放、甲板范围、落地阈值和 PPO 配置与当前代码一致。
+
 ## Pipeline
 
 ```text
@@ -39,7 +47,13 @@ Raw observations are normalized with the frozen teacher's RL-Games running mean/
 
 BC-only is evaluated by loading the BC-initialized RL-Games checkpoint before any PPO update. PPO-from-scratch and BC+PPO use the same task, number of environments, seeds, PPO configuration, epoch/interaction budget, checkpoint-selection rule, and formal evaluator.
 
-`record_rollout_case.py` stores one complete objective state/action trajectory for a requested success or failure outcome. It is suitable for numerical replay and inspection; it does not claim GUI/video acceptance when the machine has no usable display.
+`record_rollout_case.py` stores one complete objective state/action trajectory for a requested success or failure outcome. It is suitable for numerical replay and inspection; it does not claim GUI acceptance when the current shell has no usable display. This script does not implement offscreen video recording. A missing interactive `DISPLAY` blocks the GUI, but headless MP4 generation would still be possible through a separate render-enabled recorder.
+
+Display diagnosis and local GUI startup instructions are documented in:
+
+```text
+docs/runtime_display_troubleshooting.md
+```
 
 ## Tests
 
@@ -48,7 +62,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python -m pytest -q tests
 ```
 
-Tests cover schema, dtypes/shapes, action bounds, NaN/Inf rejection, episode split leakage, manifest hashes, statistics, observation normalization, actor save/load, BC-to-RL-Games parity, benchmark aggregation, and threshold crossing.
+Tests cover schema, dtypes/shapes, action bounds, NaN/Inf rejection, episode split leakage, manifest hashes, statistics, observation normalization, actor save/load, BC-to-RL-Games parity, benchmark aggregation, threshold crossing, and paper-to-code parameter synchronization.
 
 Exact formal commands and artifact checksums are generated in:
 

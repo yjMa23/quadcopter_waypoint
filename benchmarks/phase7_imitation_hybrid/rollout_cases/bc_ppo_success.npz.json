@@ -42,5 +42,5 @@
   "trajectory": "bc_ppo_success.npz",
   "trajectory_sha256": "4524e450d416fa4fbea60b42f655165b9d27c1dc9bba2e7d345abea8acfb09bf",
   "video_generated": false,
-  "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+  "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
 }

@@ -42,5 +42,5 @@
   "trajectory": "teacher_success.npz",
   "trajectory_sha256": "28c8c5b981294640a7973db145034d8d6a63169824e17241e692bc2a3565247b",
   "video_generated": false,
-  "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video."
+  "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
 }

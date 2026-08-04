@@ -246,7 +246,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         },
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "video_generated": False,
-        "video_note": "Headless execution has no usable DISPLAY; this artifact is an objective state/action trajectory, not a human GUI acceptance video.",
+        "video_note": (
+            "No interactive display was available. This script records an objective state/action trajectory only; "
+            "headless offscreen video would require a separate render-enabled recorder."
+        ),
     }
     sidecar.write_text(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(metadata, indent=2, ensure_ascii=False))

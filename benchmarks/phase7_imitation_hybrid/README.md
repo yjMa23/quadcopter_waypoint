@@ -14,6 +14,18 @@ The BC-only target was met. The 92% BC+PPO target and the 90% sample-efficiency 
 
 The current policy is state based. It contains no camera image input and no real visual projection features.
 
+Paper-style formulation, equations, algorithm design, implementation traceability, and discussion:
+
+```text
+docs/p7_imitation_hybrid_paper.md
+```
+
+Interactive display and headless-rendering diagnosis:
+
+```text
+docs/runtime_display_troubleshooting.md
+```
+
 ## Files
 
 - `summary.json`: checksums, per-seed metrics, aggregate metrics, thresholds, acceptance, and limitations.
