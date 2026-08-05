@@ -366,7 +366,16 @@ w_k=\frac{\min(\tilde w_k,8)}
 - scalar value head 使用固定随机种子重新初始化；
 - fixed sigma 保留自统一 PPO 配置。
 
-RL-Games 当前使用共享特征网络，BC actor MLP 也作为 critic 的输入特征，但 value 输出头是随机初始化的。这意味着在线训练开始时 actor 已较强，而 critic 仍处于 cold start。
+RL-Games 当前使用共享特征网络，配置为 `network.separate: false`。BC actor MLP 也作为 critic 的输入特征，但 value 输出头是随机初始化的。这意味着在线训练开始时 actor 已较强，而 critic 仍处于 cold start。默认 `A2CAgent` 使用一个 Adam optimizer 包含 `model.parameters()`，即共享 MLP、`mu`、`value`、fixed `sigma` 以及归一化模块中的可训练参数（running statistics 本身为 buffer）。对共享特征参数 \(\phi\)，RL-Games 实际最小化损失给出的梯度为
+
+\[
+\nabla_\phi L_{total}=\nabla_\phi L_{actor}
++0.5c_v\nabla_\phi L_{value}
+-c_e\nabla_\phi H
++c_b\nabla_\phi L_{bounds}.
+\]
+
+因此即使显式冻结或缩小 actor surrogate，value loss 仍可能经共享 MLP 改变 BC 表征；只冻结 `mu` head 也不能保持完整 actor function。
 
 ## 7 PPO 微调目标
 
@@ -390,7 +399,13 @@ r_t(\theta)=
 \right].
 \]
 
-当前配置还包含 critic loss、动作边界损失和梯度裁剪。主要参数为：
+当前配置还包含 critic loss、动作边界损失和梯度裁剪。RL-Games 代码实际最小化
+
+\[
+L=L_{actor}+0.5c_vL_{value}-c_eH+c_bL_{bounds},
+\]
+
+而不是把教材中的最大化目标直接相加。主要参数为：
 
 | 参数 | 数值 |
 |---|---:|
@@ -518,17 +533,15 @@ BC 只拟合训练分布中的单步动作。闭环执行时，小误差会改�
 
 ## 13 实现可追溯性
 
-| 理论/实验内容 | 代码或证据来源 |
-|---|---|
-| 甲板绝对时间运动、角速度和接触点运动学 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck_attitude/quadrotor_ship_landing_physical_deck_attitude_env.py` |
-| 推力/力矩动作映射及基础奖励 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing/quadrotor_ship_landing_env.py` |
-| 实体接触与稳定降落阈值 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck/quadrotor_ship_landing_physical_deck_env.py` |
-| 数据 schema、episode split、阶段权重 | `source/quadcopter_waypoint/quadcopter_waypoint/imitation/dataset.py` |
-| BC 网络与归一化 | `source/quadcopter_waypoint/quadcopter_waypoint/imitation/policy.py` |
-| BC 加权 MSE 训练 | `scripts/imitation/train_bc.py` |
-| BC 到 RL-Games checkpoint 迁移 | `source/quadcopter_waypoint/quadcopter_waypoint/imitation/checkpoint.py` |
-| PPO 参数 | `source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck_attitude/agents/rl_games_ppo_cfg.yaml` |
-| 正式数据与结果 | `benchmarks/phase7_imitation_hybrid/summary.json` |
-| 完整复现实验命令 | `benchmarks/phase7_imitation_hybrid/commands.txt` |
+| 理论内容 | 代码位置/函数 | 配置键 | 单元测试 | 实验证据 |
+|---|---|---|---|---|
+| 甲板运动与接触点运动学 | `.../quadrotor_ship_landing_physical_deck_attitude_env.py::_compute_absolute_deck_state/_contact_kinematics` | `deck_*` | `test_physical_deck_attitude_math.py` | P6C/P7 formal CSV |
+| 推力/力矩与 reward | `.../quadrotor_ship_landing_env.py::_pre_physics_step/_get_rewards` | action/reward scales | P7 文档同步 | TensorBoard、summary |
+| 实体接触与稳定判定 | `.../quadrotor_ship_landing_physical_deck_env.py::_compute_landing_terms/_get_dones` | `safe_*`, `hard_*`, `settle_hold_steps` | evaluator tests | formal CSV |
+| 数据 schema 与 episode split | `imitation/dataset.py` | split ratios、phase cap | `test_imitation_dataset.py` | dataset manifest |
+| BC 网络、归一化与损失 | `imitation/policy.py`；`scripts/imitation/train_bc.py` | `[64,64]`, ELU, epsilon/clip | policy checkpoint tests | BC metrics JSON |
+| BC→RL-Games 迁移 | `imitation/checkpoint.py::build_bc_initialized_rlgames_checkpoint` | value seed、fresh state | `test_imitation_policy_checkpoint.py` | BC-init checkpoint metadata |
+| PPO 与共享梯度 | RL-Games `A2CAgent.calc_gradients`；项目 PPO YAML | `separate:false`, PPO keys | P7/P8B documentation sync | params YAML、TensorBoard losses |
+| 正式结果与命令 | `scripts/imitation/build_benchmark.py` | seeds/episodes | benchmark tests | `benchmarks/phase7_imitation_hybrid/summary.json`, `commands.txt` |
 
 本文顶部 `CODE_SYNC` 块由 `tests/test_p7_documentation_sync.py` 与实际代码参数进行一致性检查。后续修改网络、动作缩放、甲板运动范围、落地阈值或 PPO 配置时，测试会提示同步更新本文。
