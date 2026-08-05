@@ -46,6 +46,7 @@ def _entry_matches(entry: dict[str, Any], record: CheckpointRecord, args: argpar
     return (
         entry.get("checkpoint_sha256") == record.sha256
         and entry.get("task") == args.task
+        and entry.get("agent") == args.agent
         and int(entry.get("eval_seed", -1)) == eval_seed
         and int(entry.get("episodes", -1)) == args.episodes
         and int(entry.get("num_envs", -1)) == args.num_envs
@@ -76,6 +77,7 @@ def _evaluate(
         sys.executable,
         str(repo / "scripts/rl_games/eval_metrics.py"),
         f"--task={args.task}",
+        f"--agent={args.agent}",
         f"--checkpoint={record.path}",
         f"--num_envs={args.num_envs}",
         f"--episodes={args.episodes}",
@@ -93,6 +95,7 @@ def _evaluate(
         "training_reward": record.training_reward,
         "kind": record.kind,
         "task": args.task,
+        "agent": args.agent,
         "eval_seed": eval_seed,
         "episodes": args.episodes,
         "num_envs": args.num_envs,
@@ -133,6 +136,7 @@ def _evaluate(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", required=True)
+    parser.add_argument("--agent", default="rl_games_cfg_entry_point")
     parser.add_argument("--run_dirs", nargs="*", default=[])
     parser.add_argument("--bc_checkpoint", default=None)
     parser.add_argument("--checkpoint_paths", nargs="*", default=[])
@@ -166,6 +170,7 @@ def main() -> None:
     manifest = _load_manifest(manifest_path, args.resume)
     manifest["configuration"] = {
         "task": args.task,
+        "agent": args.agent,
         "num_envs": args.num_envs,
         "episodes": args.episodes,
         "eval_seeds": args.eval_seeds,

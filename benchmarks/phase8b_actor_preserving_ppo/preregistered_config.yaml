@@ -1,0 +1,46 @@
+p8b_preregistered_config:
+  task_id: Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0
+  observation_dim: 22
+  action_dim: 4
+  network:
+    separate: true
+    units:
+    - 64
+    - 64
+    activation: elu
+    fixed_sigma: true
+  migration:
+    schema_version: p8b-separate-v1
+    critic_seed: 2026
+    parity_max_abs_error: 1.0e-05
+  warmup_epochs: 10
+  freeze_lr_scheduler_during_warmup: true
+  freeze_observation_rms: true
+  bc_anchor:
+    type: mse_mean_action
+    coefficient: 50.0
+    pilot_candidates:
+    - 0.0
+    - 10.0
+    - 50.0
+  training:
+    num_envs: 256
+    horizon_length: 24
+    max_epochs: 200
+    environment_steps_per_seed: 1228800
+  seeds:
+    training:
+    - 42
+    - 43
+    - 44
+    validation:
+    - 145
+    - 146
+    - 147
+    formal_test:
+    - 245
+    - 246
+    - 247
+  evaluation:
+    validation_episodes_per_seed: 128
+    formal_test_episodes_per_seed: 256

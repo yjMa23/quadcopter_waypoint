@@ -87,7 +87,7 @@ def test_p8b_preregistered_parameters_match_frozen_task_and_ppo() -> None:
     assert prereg["freeze_lr_scheduler_during_warmup"] is True
     assert prereg["freeze_observation_rms"] is True
     assert prereg["bc_anchor"]["type"] == "mse_mean_action"
-    assert prereg["bc_anchor"]["coefficient"] == pytest.approx(10.0)
+    assert prereg["bc_anchor"]["coefficient"] == pytest.approx(50.0)
     assert prereg["bc_anchor"]["pilot_candidates"] == [0.0, 10.0, 50.0]
     assert prereg["bc_anchor"]["reduction"] == "mean_all_elements"
     assert prereg["bc_anchor"]["action_representation"] == "deterministic_pre_clamp_mean"

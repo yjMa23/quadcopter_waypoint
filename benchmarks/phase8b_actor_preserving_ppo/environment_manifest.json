@@ -1,0 +1,8 @@
+{
+  "branch": "main",
+  "display": null,
+  "generated_at_utc": "2026-08-05T02:51:31.429236+00:00",
+  "git_commit": "6c1ebc440eda2692e587a2688b47aa5318610806",
+  "headless_training_and_evaluation": true,
+  "python": "/home/j/anaconda3/envs/env_isaaclab/bin/python"
+}

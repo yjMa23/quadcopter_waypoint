@@ -1,6 +1,6 @@
 # P8B：Actor-Preserving PPO（保守策略微调）
 
-> 文档状态：**设计与实验预注册版本**。本版本在任何 P8B 核心训练代码、pilot 或正式实验之前写入。实验后只追加真实实现差异、结果和预测验证，不删除未被支持的预测。
+> 文档状态：**设计预注册完成，pilot 已完成并冻结正式配置**。初始设计在任何 P8B 核心训练代码、pilot 或正式实验之前写入；本版只追加实现前 smoke 修正和真实 pilot 结果，不删除未被支持的预测。
 
 ## 1. 问题定义与冻结边界
 
@@ -169,7 +169,15 @@ reference actor state_dict 写入每个 P8B checkpoint，同时记录源 BC SHA2
 
 Pilot 使用同一 BC migration、training seed 42、30 epochs、256 envs、checkpoint interval 10、validation seeds 145/146/147、每 seed 128 episodes。候选只为 \(\lambda\in\{0,10,50\}\)，其余配置相同。选择顺序：最大 validation settled landing；最小 deck miss；最小 hard contact；最小 touchdown distance；更低 action drift 仅作后续 tie-break；仍相同时选择更小系数。
 
-最多允许一次有明确失败诊断的统一修正；必须先更新本文，不使用 formal test 结果。
+Pilot 已按上述协议完成，33 个 checkpoint×seed 评估全部成功，formal test seeds 未使用。每个 coefficient 按相同规则选出的最佳 checkpoint 为：
+
+| coefficient | selected epoch | settled landing | deck miss | hard contact | touchdown distance | action MSE vs BC |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 10 | 88.0208% | 11.9792% | 0.2604% | 0.05908 m | 0 |
+| 10 | 20 | 79.4271% | 20.3125% | 1.3021% | 0.06609 m | 2.8872e-4 |
+| 50 | 30 | **94.5312%** | **5.4688%** | 0.7812% | **0.05098 m** | 1.5900e-4 |
+
+因此唯一选择 \(\lambda_{BC}=50\)。相同 epoch30 下，action MSE 为 λ=0 `8.8090e-4`、λ=10 `6.5034e-4`、λ=50 `1.5900e-4`，支持“正 anchor 降低 drift”的 pilot 预测；闭环优势仍只能由受控 pilot 结果表述，不能把 action MSE 与 settled landing 的关系推广为普遍因果。pilot 后未发生额外设计修正。
 
 正式训练 seeds 42/43/44，每 seed 200 epochs、256 envs、horizon 24，即 1,228,800 environment steps。validation seeds 145/146/147，每 checkpoint 每 seed 128 episodes。formal test seeds 245/246/247，每选中 checkpoint 每 seed 256 episodes。formal test 绝不参与 coefficient 或 checkpoint 选择。
 
@@ -197,7 +205,7 @@ p8b_preregistered_config:
   freeze_observation_rms: true
   bc_anchor:
     type: mse_mean_action
-    coefficient: 10.0
+    coefficient: 50.0
     pilot_candidates: [0.0, 10.0, 50.0]
     reduction: mean_all_elements
     action_representation: deterministic_pre_clamp_mean
@@ -239,7 +247,7 @@ p8b_preregistered_config:
     target_timeout_max: 0.03
 ```
 
-该块是 P8B 参数唯一文档源。pilot 后如系数 0 或 50 被选中，必须以独立 Git 历史更新 `coefficient` 和正式 YAML，并说明选择证据；不得维护第二个冲突参数块。
+该块是 P8B 参数唯一文档源。pilot 已选择系数 50，并同步更新正式 YAML、文档同步测试和 `benchmarks/phase8b_actor_preserving_ppo/preregistered_config.yaml`；不得维护第二个冲突参数块。
 
 ## 12. 可证伪预测
 

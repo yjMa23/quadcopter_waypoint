@@ -1,0 +1,29 @@
+# P8B actor-preserving PPO commands
+# Run from /home/j/Isaac_RL_Projects/quadcopter_waypoint with Git state recorded in summary.json.
+
+# Theory/document synchronization
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python -m pytest -q tests/test_p8b_documentation_sync.py
+
+# Shared BC-init -> separate actor/critic migration
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/imitation/create_p8b_checkpoint.py --source_checkpoint logs/imitation/p7_bc/bc_init_rlgames.pth --config source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck_attitude/agents/rl_games_p8b_ppo_cfg.yaml --dataset_manifest logs/imitation/p7_expert_dataset/manifest.json --output logs/imitation/p8b_actor_preserving/bc_init_separate_formal_lambda50.pth --critic_seed 2026
+
+# Pilot train template; coefficient is one of 0, 10, 50 and all other arguments are fixed.
+/home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 --agent=rl_games_p8b_cfg_entry_point --num_envs=256 --seed=42 --headless --max_iterations=30 --checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_lrfreeze.pth agent.params.config.name=p8b_pilot_lambda50 +agent.params.config.full_experiment_name=seed42 agent.params.config.p8b.bc_anchor_coefficient=50.0
+
+# Pilot validation sweep
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/imitation/evaluate_checkpoint_sweep.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 --agent=rl_games_p8b_cfg_entry_point --run_dirs logs/rl_games/p8b_pilot_lambda0/seed42 logs/rl_games/p8b_pilot_lambda10/seed42 logs/rl_games/p8b_pilot_lambda50/seed42 --bc_checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_lrfreeze.pth --include_reward_selected --output_dir=logs/imitation/p8b_actor_preserving/pilot_validation --num_envs=64 --episodes=128 --eval_seeds 145 146 147 --headless
+
+# Pilot policy drift
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/imitation/analyze_p8b_drift.py --manifest=logs/imitation/p7_expert_dataset/manifest.json --run_dirs logs/rl_games/p8b_pilot_lambda0/seed42 logs/rl_games/p8b_pilot_lambda10/seed42 logs/rl_games/p8b_pilot_lambda50/seed42 --bc_checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_lrfreeze.pth --include_reward_selected --output_dir=logs/imitation/p8b_actor_preserving/pilot_drift
+
+# Pilot benchmark aggregation
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/imitation/build_phase8b_benchmark.py --pilot_manifest=logs/imitation/p8b_actor_preserving/pilot_validation/sweep_manifest.json --pilot_drift=logs/imitation/p8b_actor_preserving/pilot_drift/policy_drift.json
+
+# Formal training template; repeat exactly for seeds 42, 43, 44 with the same selected coefficient 50.
+/home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 --agent=rl_games_p8b_cfg_entry_point --num_envs=256 --seed=42 --headless --max_iterations=200 --checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_formal_lambda50.pth agent.params.config.name=p8b_formal_lambda50 +agent.params.config.full_experiment_name=seed42
+
+# Formal validation sweep (selection only; never use formal-test seeds here)
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/imitation/evaluate_checkpoint_sweep.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 --agent=rl_games_p8b_cfg_entry_point --run_dirs logs/rl_games/p8b_formal_lambda50/seed42 logs/rl_games/p8b_formal_lambda50/seed43 logs/rl_games/p8b_formal_lambda50/seed44 --bc_checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_formal_lambda50.pth --include_reward_selected --output_dir=logs/imitation/p8b_actor_preserving/formal_validation --num_envs=64 --episodes=128 --eval_seeds 145 146 147 --headless
+
+# Full test suite
+PYTHONPATH=source/quadcopter_waypoint /home/j/anaconda3/envs/env_isaaclab/bin/python -m pytest -q tests
