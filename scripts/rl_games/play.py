@@ -14,6 +14,12 @@ source = source.replace(
     "# PLACEHOLDER: Extension template (do not remove this comment)",
     "import quadcopter_waypoint.tasks  # noqa: F401",
 )
+source = source.replace(
+    "runner.load(agent_cfg)",
+    "from quadcopter_waypoint.imitation.p8b_agent import register_p8b_runner\n"
+    "    register_p8b_runner(runner)\n"
+    "    runner.load(agent_cfg)",
+)
 
 code = compile(source, str(OFFICIAL_SCRIPT), "exec")
 exec_globals = {"__name__": "__main__", "__file__": str(OFFICIAL_SCRIPT)}

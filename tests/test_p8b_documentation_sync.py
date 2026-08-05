@@ -20,7 +20,8 @@ ATTITUDE_ENV = ROOT / (
     "quadrotor_ship_landing_physical_deck_attitude/quadrotor_ship_landing_physical_deck_attitude_env.py"
 )
 TASK_INIT = ATTITUDE_ENV.parent / "__init__.py"
-PPO_CONFIG = ATTITUDE_ENV.parent / "agents/rl_games_ppo_cfg.yaml"
+BASE_PPO_CONFIG = ATTITUDE_ENV.parent / "agents/rl_games_ppo_cfg.yaml"
+PPO_CONFIG = ATTITUDE_ENV.parent / "agents/rl_games_p8b_ppo_cfg.yaml"
 P8A_VALIDATION = ROOT / "benchmarks/phase8a_checkpoint_selection/validation_results.csv"
 P8A_FORMAL = ROOT / "benchmarks/phase8a_checkpoint_selection/formal_results.csv"
 
@@ -67,6 +68,7 @@ def test_p8b_preregistered_parameters_match_frozen_task_and_ppo() -> None:
     base_values = _class_literals(BASE_ENV, "QuadcopterShipLandingEnvCfg")
     attitude_values = _class_literals(ATTITUDE_ENV, "QuadcopterShipLandingPhysicalDeckAttitudeEnvCfg")
     ppo = yaml.safe_load(PPO_CONFIG.read_text(encoding="utf-8"))["params"]
+    base_ppo = yaml.safe_load(BASE_PPO_CONFIG.read_text(encoding="utf-8"))["params"]
     network = ppo["network"]
     config = ppo["config"]
 
@@ -77,14 +79,28 @@ def test_p8b_preregistered_parameters_match_frozen_task_and_ppo() -> None:
     assert prereg["network"]["units"] == network["mlp"]["units"]
     assert prereg["network"]["activation"] == network["mlp"]["activation"]
     assert prereg["network"]["fixed_sigma"] == network["space"]["continuous"]["fixed_sigma"]
+    assert network["separate"] is True
+    assert base_ppo["network"]["separate"] is False
+    assert ppo["algo"]["name"] == "p8b_actor_preserving"
 
     assert prereg["warmup_epochs"] == prereg["warmup_active_epoch_max"] == 10
+    assert prereg["freeze_lr_scheduler_during_warmup"] is True
     assert prereg["freeze_observation_rms"] is True
     assert prereg["bc_anchor"]["type"] == "mse_mean_action"
     assert prereg["bc_anchor"]["coefficient"] == pytest.approx(10.0)
     assert prereg["bc_anchor"]["pilot_candidates"] == [0.0, 10.0, 50.0]
     assert prereg["bc_anchor"]["reduction"] == "mean_all_elements"
     assert prereg["bc_anchor"]["action_representation"] == "deterministic_pre_clamp_mean"
+    p8b_config = config["p8b"]
+    assert p8b_config["schema_version"] == prereg["migration"]["schema_version"]
+    assert p8b_config["warmup_epochs"] == prereg["warmup_epochs"]
+    assert (
+        p8b_config["freeze_lr_scheduler_during_warmup"]
+        == prereg["freeze_lr_scheduler_during_warmup"]
+    )
+    assert p8b_config["freeze_observation_rms"] == prereg["freeze_observation_rms"]
+    assert p8b_config["bc_anchor_type"] == prereg["bc_anchor"]["type"]
+    assert p8b_config["bc_anchor_coefficient"] == pytest.approx(prereg["bc_anchor"]["coefficient"])
 
     ppo_doc = prereg["ppo"]
     expected = {
@@ -152,5 +168,7 @@ def test_p8b_theory_traceability_targets_exist() -> None:
         ROOT / "source/quadcopter_waypoint/quadcopter_waypoint/imitation/checkpoint_sweep.py",
         P8A_VALIDATION,
         P8A_FORMAL,
+        BASE_PPO_CONFIG,
+        PPO_CONFIG,
     ):
         assert path.exists(), f"traceability target missing: {path.relative_to(ROOT)}"

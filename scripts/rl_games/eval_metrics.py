@@ -144,6 +144,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # set number of actors into agent config
     agent_cfg["params"]["config"]["num_actors"] = env.unwrapped.num_envs
     runner = Runner()
+    from quadcopter_waypoint.imitation.p8b_agent import register_p8b_runner
+
+    register_p8b_runner(runner)
     runner.load(agent_cfg)
     agent: BasePlayer = runner.create_player()
     agent.restore(resume_path)
