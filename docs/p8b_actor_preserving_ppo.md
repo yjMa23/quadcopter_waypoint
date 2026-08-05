@@ -109,7 +109,7 @@ RL-Games 在每轮优化前先执行 `update_epoch()`，epoch 从 0 自增到 1�
 
 checkpoint `epoch=10` 是完成第 10 次 critic-only 更新后的边界快照；epoch11 是首次允许 actor/sigma 更新的 epoch。warm-up 期间 actor 仍用于 rollout 和前向概率计算，但 actor、bounds、entropy 和 anchor 项不进入反向更新；只最小化 `0.5*critic_coef*value_loss`。actor 与 sigma `requires_grad=False`，BC reference 永远冻结。observation RMS 全程 eval；value RMS 保持 RL-Games 设计。
 
-warm-up 结束时不重建 optimizer：critic Adam moments 保留；actor/sigma 因没有 gradient 不产生 Adam state，epoch11 首次梯度时自然初始化其 optimizer state。scheduler 仍按真实 epoch/KL 更新；warm-up 的 policy KL 理论上应接近零。resume 根据 checkpoint 的 `epoch` 和 P8B metadata 恢复，下一 epoch 自动决定是否仍在 warm-up。
+warm-up 结束时不重建 optimizer：critic Adam moments 保留；actor/sigma 因没有 gradient 不产生 Adam state，epoch11 首次梯度时自然初始化其 optimizer state。**warm-up 期间冻结 adaptive KL scheduler 和 optimizer learning rate 为基础值 `1e-4`**；否则 policy KL≈0 会被 RL-Games scheduler 解释为“更新过小”，连续放大学习率，造成 epoch11 首次 actor update 突跳。epoch11 起才恢复 adaptive scheduler，并从基础 learning rate 启动。resume 根据 checkpoint 的 `epoch` 和 P8B metadata 恢复，下一 epoch 自动决定 warm-up 与 scheduler 状态。
 
 checkpoint metadata 和日志至少记录 epoch、warmup_active、actor_trainable、critic_trainable、actor/critic hash、gradient norm、parameter delta、RMS hash、anchor loss。
 
@@ -193,6 +193,7 @@ p8b_preregistered_config:
     parity_max_abs_error: 1.0e-5
   warmup_epochs: 10
   warmup_active_epoch_max: 10
+  freeze_lr_scheduler_during_warmup: true
   freeze_observation_rms: true
   bc_anchor:
     type: mse_mean_action
@@ -260,7 +261,7 @@ p8b_preregistered_config:
 
 ### B. Critic-only warm-up
 
-输入为 on-policy rollout batch；epoch1–10 仅 value loss 反向，actor/sigma 冻结。单测覆盖 epoch9/10/11、hash、resume 和 optimizer state。
+输入为 on-policy rollout batch；epoch1–10 仅 value loss 反向，actor/sigma 冻结，同时 adaptive scheduler 不更新且 optimizer LR 固定为 `1e-4`。epoch11 从基础 LR 恢复 adaptive 调度。单测覆盖 epoch9/10/11、hash、resume、optimizer state 和 scheduler/LR 边界。
 
 ### C. Frozen observation RMS
 
@@ -298,4 +299,10 @@ p8b_preregistered_config:
 
 ## 15. 当前理论前置结论
 
-没有未解决的任务语义歧义。已明确的工程验证点是：RL-Games custom agent 的注册入口、checkpoint save/restore metadata、warm-up epoch 边界和 observation RMS train-mode 强制恢复；这些属于实现验收项，不改变预注册数学方案。只有文档同步、migration parity、gradient isolation、warm-up hash 和 RMS freeze 测试全部通过后才允许启动训练。
+没有未解决的任务语义歧义。已明确的工程验证点是：RL-Games custom agent 的注册入口、checkpoint save/restore metadata、warm-up epoch 边界、adaptive scheduler 边界和 observation RMS train-mode 强制恢复。只有文档同步、migration parity、gradient isolation、warm-up hash、LR freeze 和 RMS freeze 测试全部通过后才允许启动 pilot。
+
+## 16. 冒烟前设计修正记录
+
+2026-08-05 的首个 16-env、12-epoch Isaac Sim smoke 验证了 actor/RMS 在 epoch1–10 不变、critic 持续更新、epoch11 actor 开始更新；但还观察到 epoch11 actor parameter delta 约 1.13。根因是原预注册允许 adaptive KL scheduler 在 warm-up 中运行，零 policy KL 使 RL-Games 连续提高 learning rate。该现象发生在 pilot 和 formal experiment 之前，不能作为配置优劣结果。
+
+因此先修改理论再修改代码：新增 `freeze_lr_scheduler_during_warmup: true`，epoch1–10 的 optimizer LR 固定为基础 `1e-4`，epoch11 从基础值恢复 adaptive scheduler。该修正对所有候选和 seed 一致，不修改环境、训练预算、anchor 候选、validation 或 formal test 协议。首个 smoke 作为失败诊断证据保留在 `logs/rl_games/p8b_smoke/seed942`，不作为正式结果。
