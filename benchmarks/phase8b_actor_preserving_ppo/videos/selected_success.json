@@ -1,0 +1,64 @@
+{
+  "actor_sha256": "b50ad5ea3dfb826a2e585f3c85f694d8b6c0c18a03c1e8a10b98869661efa93f",
+  "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/p8b_formal_lambda50/seed42/nn/p8b_formal_lambda50.pth",
+  "checkpoint_sha256": "82679de01f6077d9dd6a42e474588d6665333bf74e2df43ead9b29904d17aa0a",
+  "created_at_utc": "2026-08-05T08:06:42.201329+00:00",
+  "episode_id": 1,
+  "evaluation_seed": 245,
+  "generation_command": "scripts/imitation/record_rollout_case.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 --agent=rl_games_p8b_cfg_entry_point --checkpoint=logs/rl_games/p8b_formal_lambda50/seed42/nn/p8b_formal_lambda50.pth --output=benchmarks/phase8b_actor_preserving_ppo/videos/selected_success.npz --seed=245 --num_envs=1 --target=success --max_steps=20000 --video --video_fps=25 --video_stride=2 --video_width=640 --video_height=360 --headless --enable_cameras",
+  "headless": true,
+  "human_review_completed": false,
+  "outcome": "settled_landing",
+  "parallel_envs": 1,
+  "phase_names": {
+    "0": "approach",
+    "1": "align",
+    "2": "descent",
+    "3": "contact_settle"
+  },
+  "scenario": "P6C moving physical deck with heave, roll, and pitch",
+  "seed": 245,
+  "selected_env_id": 0,
+  "steps": 194,
+  "target": "success",
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "terminal": {
+    "deck_contact": true,
+    "deck_miss": false,
+    "deck_position_w": [
+      -0.46875905990600586,
+      -0.743854284286499,
+      0.2029826045036316
+    ],
+    "first_contact_body_deck_normal_angle_rad": 0.0027186358347535133,
+    "first_contact_normal_relative_speed_mps": -0.17946597933769226,
+    "first_contact_tangential_relative_speed_mps": 0.23937521874904633,
+    "first_contact_xy_error_m": 0.016842639073729515,
+    "ground_crash": false,
+    "hard_contact": false,
+    "maximum_penetration_m": 0.019995728507637978,
+    "robot_position_w": [
+      -0.4771825075149536,
+      -0.7222761511802673,
+      0.23846769332885742
+    ],
+    "settled_landing": true,
+    "time_out": false,
+    "touchdown_distance_m": 0.023873955011367798
+  },
+  "training_seed": 42,
+  "trajectory": "selected_success.npz",
+  "trajectory_sha256": "18237bddbfa7e684cfc2c50320cd64e6b40a9a1c6a8d49e3f4d53690d09df924",
+  "video_duration_seconds": 3.88,
+  "video_fps": 25,
+  "video_frames": 97,
+  "video_generated": true,
+  "video_note": "Rendered offscreen in Isaac Sim. The file was validated structurally and against the terminal latch; interactive human GUI review is not claimed.",
+  "video_path": "selected_success.mp4",
+  "video_resolution": [
+    640,
+    360
+  ],
+  "video_sha256": "8061d7c68691faccc264979ee8c0f984d58693cc359816df48fc81cc293868cf",
+  "video_stride": 2
+}

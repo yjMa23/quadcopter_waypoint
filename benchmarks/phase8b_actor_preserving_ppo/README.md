@@ -1,32 +1,43 @@
-# P8B Actor-Preserving PPO Benchmark
+# P8B Actor-Preserving PPO 正式 Benchmark
 
-本目录保存 P8B 的可提交小型 benchmark、配置快照、聚合表、图表与视频 manifest。大型 checkpoint、完整 TensorBoard、原始逐回合 CSV 和大视频保留在 `logs/`，这里只记录路径、哈希和生成命令。
+P8B 保持冻结的 P6C 环境语义，采用 separate actor/critic、epoch 1–10 critic-only warm-up、冻结 observation RMS，以及 pilot 预先选定的 `bc_anchor_coefficient=50`。
 
-## 当前状态
+## 冻结协议
 
-- 理论预注册提交：`05b1a95`
-- warm-up scheduler 设计修正提交：`349a9f4`
-- 实现与 smoke 验收提交：`6c1ebc4`
-- pilot：已完成，validation seeds 145/146/147，每 seed 128 episodes
-- pilot 选择：`bc_anchor_coefficient=50.0`
-- formal training/test：待本阶段后续命令完成后由同一生成脚本回填
+- Training seeds：42、43、44
+- Validation seeds：145、146、147；每 checkpoint/seed 128 episodes
+- Formal test seeds：245、246、247；每 checkpoint/seed 256 episodes
+- Formal test 未参与 checkpoint selection
+- Validation-selected epochs：seed42=91、seed43=30、seed44=51
+- Reward-selected epochs：seed42=91、seed43=128、seed44=51
+- Last checkpoints：三个 training seed 均为 epoch200
 
-## Pilot 结论
+## 正式结果
 
-| coefficient | 最佳 epoch | Settled landing | Deck miss | Hard contact | Touchdown distance |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 10 | 88.0208% | 11.9792% | 0.2604% | 0.05908 m |
-| 10 | 20 | 79.4271% | 20.3125% | 1.3021% | 0.06609 m |
-| 50 | 30 | **94.5312%** | **5.4688%** | 0.7812% | **0.05098 m** |
+| 方法 | settled landing | deck miss | hard contact |
+|---|---:|---:|---:|
+| Frozen teacher | 94.66% | 5.34% | 0.13% |
+| BC epoch0 | 86.20% | 13.80% | 0.00% |
+| P8A metric-selected | 91.67% | 8.33% | 0.30% |
+| **P8B metric-selected** | **96.74%** | **3.17%** | **0.09%** |
+| P8B reward-selected | 95.40% | 4.51% | 0.13% |
+| P8B epoch200 last | 92.40% | 7.55% | 0.04% |
 
-选择规则和逐 checkpoint 结果见 `pilot_summary.json` 与 `pilot_results.csv`。formal test seeds 245/246/247 未参与 pilot。
+P8B metric-selected 为 2229/2304，Wilson 95% CI 为 [95.94%, 97.40%]。达到 90%：`True`；达到 92%：`True`。
 
-## 文件
+必须保留的负面结果：P8B metric-selected 的 hard contact 为 2/2304，而 BC 为 0/768；因此不能声称所有安全指标都严格改善。epoch200 last 低于 validation-selected，reward-selected 也低于 metric-selected。
 
-- `preregistered_config.yaml`：正式实验冻结配置与 seed 角色。
-- `environment_manifest.json`：生成时 Git 和运行环境摘要。
-- `pilot_results.csv`：从 resumable validation manifest 自动聚合的逐 checkpoint 结果。
-- `pilot_summary.json`：每个 coefficient 的最佳 checkpoint、唯一选择和规则。
-- `commands.txt`：训练、validation、drift、聚合和后续正式实验命令。
+## 证据索引
 
-所有数字由 `scripts/imitation/build_phase8b_benchmark.py` 从 raw manifest/CSV 自动生成，不手工填入聚合逻辑。
+- `summary.json`：机器可解析总览和关键判定
+- `comparison.csv` / `comparison.md`：teacher、BC、P7、P8A、P8B 对比
+- `validation_results.csv` / `validation_aggregate.csv` / `validation_selection.json`：只用 validation 的选模证据
+- `formal_results.csv` / `formal_aggregate.csv`：独立 test 聚合与 Wilson CI
+- `prediction_verification.json`：七项预注册预测 verdict
+- `policy_drift.csv` / `policy_drift.json`：actor、critic、action、RMS drift
+- `failure_distribution.csv`：失败类型分布
+- `checkpoint_hashes.json` / `checkpoint_inventory.json`：checkpoint、actor、critic、RMS 哈希
+- `videos/video_manifest.json`：真实 `settled_landing` 与 `deck_miss` 视频/轨迹哈希
+- `commands.txt`：完整复现命令
+
+原始逐 episode CSV、checkpoint 和 TensorBoard 保留在 `logs/`。`video_generation_completed=True`，`human_review_completed=False`；自动 headless 视频不等于人工 GUI 目视验收。

@@ -1,6 +1,6 @@
 # Quadcopter Waypoint RL
 
-基于 **Isaac Lab External Project** 的四旋翼强化学习项目。当前主线已完成 **P7：专家轨迹、Behavior Cloning 与 BC 初始化 PPO 对比**；底层任务仍为冻结的 P6C 实体运动甲板降落环境。
+基于 **Isaac Lab External Project** 的四旋翼强化学习项目。当前主线已完成 **P8B：actor-preserving PPO 正式 validation、独立 test 与可复现实验包**；底层任务仍为冻结的 P6C 实体运动甲板降落环境。
 
 ## 当前主线
 
@@ -105,6 +105,37 @@ benchmarks/phase8a_checkpoint_selection/comparison.md
 benchmarks/phase8a_checkpoint_selection/checkpoint_drift.json
 ```
 
+## P8B Actor-Preserving PPO 正式结果
+
+P8B 不修改冻结环境的 observation、action、reward、termination 或接触语义。正式方法固定为 separate actor/critic、epoch 1–10 critic-only warm-up、全程冻结 observation RMS、`bc_anchor_coefficient=50`，并严格使用 validation seeds 145/146/147 选模后，才在独立 test seeds 245/246/247 上评估。
+
+| 方法 | settled landing | deck miss | hard contact | timeout |
+| --- | ---: | ---: | ---: | ---: |
+| frozen PPO teacher | 94.66% | 5.34% | 0.13% | 0.00% |
+| BC epoch 0 | 86.20% | 13.80% | 0.00% | 0.00% |
+| P7 ordinary BC+PPO | 76.69% | 23.05% | 0.91% | 0.00% |
+| P8A metric-selected | 91.67% | 8.33% | 0.30% | 0.00% |
+| **P8B metric-selected** | **96.74%** | **3.17%** | **0.09%** | **0.04%** |
+| P8B reward-selected | 95.40% | 4.51% | 0.13% | 0.04% |
+| P8B epoch-200 last | 92.40% | 7.55% | 0.04% | 0.04% |
+
+三个 training seed 的 validation-selected checkpoint 分别为 epoch 91、30、51；独立 formal test settled landing 分别为 97.79%、96.48%、95.96%。P8B metric-selected 共 2229/2304 成功，Wilson 95% CI 为 95.94%–97.40%，同时达到 90% 和 92% 参考目标，并超过 BC、P8A 与 frozen teacher。相对 BC，hard contact 从 0 增至 0.09%，因此不能声称所有安全指标都严格改善；绝对值仍低于 2% 目标。
+
+critic-only warm-up 后，三个 seed 的 epoch10 actor parameter drift、deterministic action MSE/max error、observation mean/variance/count drift均为 0；critic relative L2 分别为 0.1954、0.1907、0.1836。七项预注册预测均按原文验证为 `supported`，其中 drift 与闭环指标仅作统计/观测关联，不作严格因果解释。
+
+完整证据：
+
+```text
+docs/p8b_actor_preserving_ppo.md
+benchmarks/phase8b_actor_preserving_ppo/README.md
+benchmarks/phase8b_actor_preserving_ppo/summary.json
+benchmarks/phase8b_actor_preserving_ppo/comparison.md
+benchmarks/phase8b_actor_preserving_ppo/validation_selection.json
+benchmarks/phase8b_actor_preserving_ppo/prediction_verification.json
+benchmarks/phase8b_actor_preserving_ppo/policy_drift.csv
+benchmarks/phase8b_actor_preserving_ppo/videos/video_manifest.json
+```
+
 ## 项目索引
 
 ```text
@@ -114,7 +145,8 @@ benchmarks/phase8a_checkpoint_selection/checkpoint_drift.json
 │   ├── phase6b_physical_deck/
 │   ├── phase6c_physical_deck_attitude/
 │   ├── phase7_imitation_hybrid/
-│   └── phase8a_checkpoint_selection/
+│   ├── phase8a_checkpoint_selection/
+│   └── phase8b_actor_preserving_ppo/
 ├── docs/
 │   ├── README.md
 │   ├── p7_imitation_hybrid_paper.md
@@ -138,6 +170,7 @@ benchmarks/phase8a_checkpoint_selection/checkpoint_drift.json
 | P7 证据 | 专家数据、BC、BC+PPO benchmark | `benchmarks/phase7_imitation_hybrid/README.md` |
 | P7 面试 | 可使用表述、证据和失败归因 | `docs/interview_p7_evidence.md` |
 | P8A | 周期 checkpoint 指标选模与 policy drift 诊断 | `benchmarks/phase8a_checkpoint_selection/README.md` |
+| P8B | actor-preserving PPO、validation 选模、独立 test、drift 与视频 | `benchmarks/phase8b_actor_preserving_ppo/README.md` |
 | Display/GUI | 默认 display、headless、SSH、tmux、Docker | `docs/runtime_display_troubleshooting.md` |
 | imitation scripts | 采集、训练、迁移、汇总 | `scripts/imitation/README.md` |
 | rl_games scripts | PPO 训练、播放、闭环评估 | `scripts/rl_games/README.md` |
@@ -221,9 +254,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 
 ## Display 与 GUI
 
-当前自动执行会话中 `DISPLAY`、`WAYLAND_DISPLAY` 和 `XDG_SESSION_TYPE` 均为空，同时不存在 `/tmp/.X11-unix/X0` 与 `~/.Xauthority`。因此 Isaac Sim 无法打开交互式默认 display，但 GPU/Vulkan 和 `--headless` 数值仿真不受影响。
-
-这只说明当前 shell 没有连接桌面显示服务器，并不等价于 headless 模式绝对不能录制 MP4。当前 rollout 脚本仅实现数值轨迹记录；离屏视频需要单独启用渲染和视频 recorder。完整诊断与 GUI 启动方式见：
+P8B 收尾会话中已通过 Isaac Sim `--headless --enable_cameras` 的 `rgb_array` 离屏渲染生成真实成功和真实 `deck_miss` MP4，并用 terminal latch、sidecar SHA256 与 `ffprobe` 做自动结构校验。自动生成不等于人工目视验收，因此所有视频 manifest 仍明确记录 `human_review_completed=false`。完整诊断与 GUI 启动方式见：
 
 ```text
 docs/runtime_display_troubleshooting.md
@@ -235,4 +266,4 @@ docs/runtime_display_troubleshooting.md
 - PPO critic 从随机值头开始，在线更新容易破坏已经较强的 BC actor。
 - P7 原 checkpoint 选择依据是公共训练循环的 mean episode reward；P8A 已证明它与 settled landing 最优 checkpoint 不一致。
 - 当前运动分布不包含 yaw、随机波谱、水动力或完整船舶六自由度运动。
-- 当前会话没有可用交互 display；已保存 teacher、BC、BC+PPO 成功轨迹和代表性 timeout 失败轨迹，但未声称完成人工 GUI 目视验收。
+- P8B 已生成 targeted headless 成功和 `deck_miss` 视频，但未声称完成人工 GUI 目视验收。

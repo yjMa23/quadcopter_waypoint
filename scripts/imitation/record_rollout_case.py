@@ -9,12 +9,18 @@ import argparse
 import json
 import math
 import random
+import re
+import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import imageio.v2 as imageio
 import numpy as np
+from PIL import Image
 from isaaclab.app import AppLauncher
+
+ORIGINAL_COMMAND = " ".join(shlex.quote(argument) for argument in sys.argv)
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--task", required=True)
@@ -30,6 +36,17 @@ parser.add_argument(
 )
 parser.add_argument("--max_steps", type=int, default=20000)
 parser.add_argument("--agent", default="rl_games_cfg_entry_point")
+parser.add_argument("--video", action="store_true", help="Write a targeted headless MP4 beside the trajectory.")
+parser.add_argument("--video_fps", type=int, default=25)
+parser.add_argument("--video_stride", type=int, default=2)
+parser.add_argument("--video_width", type=int, default=640)
+parser.add_argument("--video_height", type=int, default=360)
+parser.add_argument(
+    "--video_start_episode",
+    type=int,
+    default=1,
+    help="For single-env targeted video, skip rendering completed episodes before this 1-indexed episode.",
+)
 parser.add_argument("--disable_fabric", action="store_true", default=False)
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
@@ -52,6 +69,7 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 
 import quadcopter_waypoint.tasks  # noqa: F401
 from quadcopter_waypoint.imitation.dataset import sha256_file
+from quadcopter_waypoint.imitation.p8b_checkpoint import actor_weights_sha256
 
 
 def _phase(task_env) -> torch.Tensor:
@@ -106,9 +124,18 @@ def _matches(task_env, env_id: int) -> tuple[bool, str]:
 @hydra_task_config(args_cli.task, args_cli.agent)
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict) -> None:
     output = Path(args_cli.output).resolve()
-    sidecar = output.with_suffix(output.suffix + ".json")
-    if output.exists() or sidecar.exists():
+    sidecar = output.with_suffix(".json")
+    video_output = output.with_suffix(".mp4")
+    if output.exists() or sidecar.exists() or (args_cli.video and video_output.exists()):
         raise FileExistsError(f"refusing to overwrite rollout case: {output}")
+    if args_cli.video and args_cli.num_envs != 1:
+        raise ValueError("targeted video recording requires --num_envs=1")
+    if args_cli.video_fps <= 0 or args_cli.video_stride <= 0:
+        raise ValueError("video_fps and video_stride must be positive")
+    if args_cli.video_width <= 0 or args_cli.video_height <= 0:
+        raise ValueError("video dimensions must be positive")
+    if args_cli.video_start_episode <= 0:
+        raise ValueError("video_start_episode must be positive")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     env_cfg.scene.num_envs = args_cli.num_envs
@@ -125,7 +152,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     clip_actions = agent_cfg["params"]["env"].get("clip_actions", math.inf)
     obs_groups = agent_cfg["params"]["env"].get("obs_groups")
     concatenate = agent_cfg["params"]["env"].get("concate_obs_groups", True)
-    raw_env = gym.make(args_cli.task, cfg=env_cfg)
+    raw_env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
     if isinstance(raw_env.unwrapped, DirectMARLEnv):
         raw_env = multi_agent_to_single_agent(raw_env)
     task_env = raw_env.unwrapped
@@ -136,6 +163,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     agent_cfg["params"]["load_path"] = str(checkpoint)
     agent_cfg["params"]["config"]["num_actors"] = task_env.num_envs
     runner = Runner()
+    from quadcopter_waypoint.imitation.p8b_agent import register_p8b_runner
+
+    register_p8b_runner(runner)
     runner.load(agent_cfg)
     agent: BasePlayer = runner.create_player()
     agent.restore(str(checkpoint))
@@ -150,9 +180,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if agent.is_rnn:
         agent.init_rnn()
     buffers = [_new_buffer() for _ in range(task_env.num_envs)]
-    result: tuple[int, str] | None = None
+    completed_episode_counts = [0 for _ in range(task_env.num_envs)]
+    video_frames: list[np.ndarray] = []
+    result: tuple[int, str, int] | None = None
 
-    for _ in range(args_cli.max_steps):
+    for global_step in range(args_cli.max_steps):
         if not simulation_app.is_running():
             break
         with torch.inference_mode():
@@ -172,6 +204,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             }
             next_observation, reward, done, _ = env.step(action)
             rewards = torch.as_tensor(reward).detach().cpu().numpy()
+            current_episode = completed_episode_counts[0] + 1
+            if (
+                args_cli.video
+                and current_episode >= args_cli.video_start_episode
+                and global_step % args_cli.video_stride == 0
+            ):
+                rendered = raw_env.render()
+                if rendered is None:
+                    raise RuntimeError("headless render returned no frame; verify --enable_cameras")
+                frame = np.asarray(rendered)
+                if frame.ndim != 3 or frame.shape[2] not in (3, 4):
+                    raise RuntimeError(f"unexpected render frame shape: {frame.shape}")
+                frame = frame[:, :, :3].astype(np.uint8, copy=False)
+                resized = Image.fromarray(frame).resize(
+                    (args_cli.video_width, args_cli.video_height), Image.Resampling.LANCZOS
+                )
+                video_frames.append(np.asarray(resized, dtype=np.uint8))
             done_ids = torch.nonzero(torch.as_tensor(done, dtype=torch.bool, device=task_env.device), as_tuple=False).squeeze(-1)
 
         for env_id, buffer in enumerate(buffers):
@@ -185,11 +234,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             for env_id in done_ids.detach().cpu().tolist():
                 if not bool(task_env._terminal_state_valid[env_id].item()):
                     raise RuntimeError("missing exact terminal-state latch")
+                completed_episode_counts[env_id] += 1
                 matched, outcome = _matches(task_env, env_id)
                 if matched:
-                    result = (env_id, outcome)
+                    result = (env_id, outcome, completed_episode_counts[env_id])
                     break
                 buffers[env_id] = _new_buffer()
+                if args_cli.video:
+                    video_frames.clear()
         if result is not None:
             break
         observation = next_observation["obs"] if isinstance(next_observation, dict) else next_observation
@@ -197,7 +249,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if result is None:
         env.close()
         raise RuntimeError(f"no matching {args_cli.target} rollout found within {args_cli.max_steps} steps")
-    env_id, outcome = result
+    env_id, outcome, episode_id = result
     buffer = buffers[env_id]
     arrays = {
         "step_id": np.asarray(buffer["step_id"], dtype=np.int32),
@@ -215,10 +267,33 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if not all(np.isfinite(value).all() for value in arrays.values() if np.issubdtype(value.dtype, np.floating)):
         raise RuntimeError("rollout trajectory contains NaN or Inf")
     np.savez_compressed(output, **arrays)
+    if args_cli.video:
+        if not video_frames:
+            raise RuntimeError("matching rollout contained no rendered frames")
+        imageio.mimwrite(
+            video_output,
+            video_frames,
+            fps=args_cli.video_fps,
+            codec="libx264",
+            quality=8,
+            macro_block_size=2,
+        )
+        if not video_output.is_file() or video_output.stat().st_size <= 0:
+            raise RuntimeError("video encoder produced an empty file")
+    checkpoint_payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    checkpoint_model = checkpoint_payload.get("model")
+    if not isinstance(checkpoint_model, dict):
+        raise RuntimeError("checkpoint has no model state for actor hashing")
+    seed_match = re.search(r"(?:^|/)seed(?P<seed>\d+)(?:/|$)", str(checkpoint))
     metadata = {
         "task_id": args_cli.task,
+        "scenario": "P6C moving physical deck with heave, roll, and pitch",
         "checkpoint": str(checkpoint),
         "checkpoint_sha256": sha256_file(checkpoint),
+        "actor_sha256": actor_weights_sha256(checkpoint_model),
+        "training_seed": int(seed_match.group("seed")) if seed_match else None,
+        "evaluation_seed": args_cli.seed,
+        "episode_id": episode_id,
         "seed": args_cli.seed,
         "parallel_envs": args_cli.num_envs,
         "selected_env_id": env_id,
@@ -245,10 +320,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             "deck_position_w": task_env._terminal_pad_pos_w[env_id].detach().cpu().tolist(),
         },
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "video_generated": False,
+        "generation_command": ORIGINAL_COMMAND,
+        "video_generated": bool(args_cli.video),
+        "video_path": video_output.name if args_cli.video else None,
+        "video_sha256": sha256_file(video_output) if args_cli.video else None,
+        "video_fps": args_cli.video_fps if args_cli.video else None,
+        "video_stride": args_cli.video_stride if args_cli.video else None,
+        "video_start_episode": args_cli.video_start_episode if args_cli.video else None,
+        "video_resolution": [args_cli.video_width, args_cli.video_height] if args_cli.video else None,
+        "video_frames": len(video_frames) if args_cli.video else 0,
+        "video_duration_seconds": len(video_frames) / args_cli.video_fps if args_cli.video else 0.0,
+        "headless": bool(args_cli.headless),
+        "human_review_completed": False,
         "video_note": (
-            "No interactive display was available. This script records an objective state/action trajectory only; "
-            "headless offscreen video would require a separate render-enabled recorder."
+            "Rendered offscreen in Isaac Sim. The file was validated structurally and against the terminal latch; "
+            "interactive human GUI review is not claimed."
+            if args_cli.video
+            else "Trajectory only; no video requested."
         ),
     }
     sidecar.write_text(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")

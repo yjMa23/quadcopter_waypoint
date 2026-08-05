@@ -1,6 +1,6 @@
 # P8B：Actor-Preserving PPO（保守策略微调）
 
-> 文档状态：**设计预注册完成，pilot 已完成并冻结正式配置**。初始设计在任何 P8B 核心训练代码、pilot 或正式实验之前写入；本版只追加实现前 smoke 修正和真实 pilot 结果，不删除未被支持的预测。
+> 文档状态：**设计预注册、pilot、正式训练、validation 选模、独立 formal test、drift、targeted headless 视频和可复现实验包均已完成**。初始设计在任何 P8B 核心训练代码、pilot 或正式实验之前写入；实验后只追加真实结果，不删除或改写原预测。
 
 ## 1. 问题定义与冻结边界
 
@@ -314,3 +314,90 @@ p8b_preregistered_config:
 2026-08-05 的首个 16-env、12-epoch Isaac Sim smoke 验证了 actor/RMS 在 epoch1–10 不变、critic 持续更新、epoch11 actor 开始更新；但还观察到 epoch11 actor parameter delta 约 1.13。根因是原预注册允许 adaptive KL scheduler 在 warm-up 中运行，零 policy KL 使 RL-Games 连续提高 learning rate。该现象发生在 pilot 和 formal experiment 之前，不能作为配置优劣结果。
 
 因此先修改理论再修改代码：新增 `freeze_lr_scheduler_during_warmup: true`，epoch1–10 的 optimizer LR 固定为基础 `1e-4`，epoch11 从基础值恢复 adaptive scheduler。该修正对所有候选和 seed 一致，不修改环境、训练预算、anchor 候选、validation 或 formal test 协议。首个 smoke 作为失败诊断证据保留在 `logs/rl_games/p8b_smoke/seed942`，不作为正式结果。
+
+## 17. 正式 validation 与 checkpoint selection
+
+formal validation 使用冻结的 training seeds 42/43/44、validation seeds 145/146/147、每 checkpoint/seed 128 episodes。每个 training seed 的最终统一网格为 22 个 checkpoint × 3 validation seeds = 66 条评估；三个 manifest 共 198 条、25,344 episodes。由于全局 BC epoch0 在三个 manifest 中重复，按 checkpoint SHA 去重后的 selection 输入为 192 条、24,576 episodes。seed42 曾有一条 `num_envs=64` 中断记录；原记录未删除，已标记 `superseded`，最终选模只使用完整一致的 `num_envs=48` 网格。
+
+固定 tie-break 得到：
+
+| training seed | metric-selected epoch | 类型 | validation settled | deck miss | hard contact | touchdown distance |
+|---:|---:|---|---:|---:|---:|---:|
+| 42 | 91 | reward-selected | 98.4375% | 1.5625% | 0.0000% | 0.05426 m |
+| 43 | 30 | periodic | 96.6146% | 3.3854% | 0.0000% | 0.05660 m |
+| 44 | 51 | reward-selected | 94.7917% | 5.2083% | 0.2604% | 0.05646 m |
+
+reward-selected epochs 分别为 91、128、51；last 均为 epoch200。seed42 和 seed44 的 metric-selected 与 reward-selected 是同一物理 checkpoint，seed43 不同。selection 文件在 formal test 启动前写入，且明确记录 `formal_test_seeds_used_for_selection=false`。
+
+正式 migration checkpoint 哈希重新计算为：
+
+```text
+checkpoint: ff87150ad17c726494cd2dd6bb9d8666e3849658707cc921b68cc61eae111249
+actor weights: 4a917d9f5ff41bd59f10ce964cb8838ef529600c117fff94e9c2d576cefe1b77
+critic weights: a23f8c5f6c10ea7af7f4a11b79c279b6a1a055af05ac4bd3f7b9201bdb0f30e1
+observation RMS: 7aa08af9f501e50f41452eae8eb99ad818c4bad7508a2cc864d4cfff2a05d4f3
+```
+
+旧 sweep inventory 的 `actor_sha256` 历史口径同时包含 actor 与 observation RMS；P8B 正式产物额外给出无歧义的 `actor_weights_sha256`、`critic_sha256` 和 `observation_rms_sha256`，不覆盖历史字段。
+
+## 18. 独立 formal test 结果
+
+formal test 仅在 selection 冻结后运行，固定 test seeds 245/246/247、每 checkpoint/seed 256 episodes。P8B/BC 共 8 个去重物理 checkpoint × 3 seeds = 24 条评估、6,144 episodes，全部 `completed`，无 failed/running 条目。frozen teacher 复用相同正式协议下已有的 3 条、768 episodes 原始评估。
+
+| 方法 | episodes | settled landing | deck miss | hard contact | ground crash | timeout |
+|---|---:|---:|---:|---:|---:|---:|
+| frozen PPO teacher | 768 | 94.6615% | 5.3385% | 0.1302% | 0.0000% | 0.0000% |
+| BC epoch0 | 768 | 86.1979% | 13.8021% | 0.0000% | 0.0000% | 0.0000% |
+| P7 ordinary BC+PPO | 768 | 76.6927% | 23.0469% | 0.9115% | 0.0000% | 0.0000% |
+| P8A metric-selected | 2304 | 91.6667% | 8.3333% | 0.3038% | 0.0000% | 0.0000% |
+| **P8B metric-selected** | **2304** | **96.7448%** | **3.1684%** | **0.0868%** | **0.0000%** | **0.0434%** |
+| P8B reward-selected | 2304 | 95.3993% | 4.5139% | 0.1302% | 0.0000% | 0.0434% |
+| P8B epoch200 last | 2304 | 92.4045% | 7.5521% | 0.0434% | 0.0000% | 0.0434% |
+
+P8B metric-selected 为 2229/2304 settled landing，Wilson 95% CI `[95.9388%, 97.3952%]`。三个 training seed 的独立 test settled 分别为 97.7865%、96.4844%、95.9635%，均达到 90% 和 92%。聚合结果比 BC 高 10.5469 个百分点，比 P8A 高 5.0781 个百分点，比 frozen teacher 高 2.0833 个百分点。
+
+P8B metric-selected 的其他核心指标：contact success 99.4792%，touchdown distance mean 0.05443 m、p95 0.10073 m，first-contact XY error mean 0.05032 m，normal relative speed mean -0.14705 m/s，tangential relative speed mean 0.16119 m/s，body/deck normal angle mean 0.02921 rad，maximum penetration mean 0.01988 m。
+
+必须保留的负面信息：BC formal test 的 hard contact 恰为 0，而 P8B metric-selected 为 2/2304（0.0868%），因此 hard contact 相对 BC 在数值上恶化，虽然仍远低于 2% 安全目标。P8B metric-selected 另有 73 deck miss、1 timeout、0 ground crash；不能声称所有安全维度都严格优于 BC。last checkpoint 低于 validation-selected，说明 anchor 限制 drift 但不保证持续更新单调改善。
+
+## 19. 七项预注册预测验证
+
+| # | 原预测 | verdict | 真实证据 |
+|---:|---|---|---|
+| 1 | epoch1–10 actor SHA 不变 | supported | 三 seed epoch10 actor relative L2 均为 0，actor weights SHA 均保持 `4a917d...` |
+| 2 | warm-up action max error ≤1e-5 | supported | 三 seed epoch10 action MSE 和 max absolute error 均为 0 |
+| 3 | warm-up critic 发生变化 | supported | epoch10 critic relative L2 为 0.1954、0.1907、0.1836 |
+| 4 | observation RMS drift 为 0 | supported | 所有 P8B checkpoint 的 mean/variance/count drift 均为 0，RMS SHA 保持 `7aa08a...` |
+| 5 | 正 anchor 降低同 epoch action MSE | supported | pilot epoch30：λ=0 为 `8.8090e-4`，λ=50 为 `1.5900e-4` |
+| 6 | 较低 drift 可减缓退化但不保证成功 | supported | selected 96.74% 高于 BC 86.20%，但 epoch200 降至 92.40%；仅作观测关联 |
+| 7 | validation metric 选模优于 reward 选模 | supported | 独立 test：96.74% > 95.40% |
+
+七项 verdict 均保持原预测表述。第 6 项及 action drift/settled correlation 不能解释为严格因果；formal test 只能支持本协议、本环境和本训练预算下的观测结论。
+
+## 20. Targeted headless 视频与人工验收状态
+
+使用最终 seed42 metric-selected policy、单环境、Isaac Sim `rgb_array` 离屏渲染生成：
+
+```text
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_success.mp4
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_success.npz
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_success.json
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_failure.mp4
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_failure.npz
+benchmarks/phase8b_actor_preserving_ppo/videos/selected_failure.json
+benchmarks/phase8b_actor_preserving_ppo/videos/video_manifest.json
+```
+
+成功视频的 terminal outcome 为真实 `settled_landing`。失败回合先在同一 checkpoint、同一 evaluation seed245 的无渲染单环境序列中定位到第 148 回合，再只缓存该回合帧；terminal outcome 必须为真实 `deck_miss`，不能用非目标回合替代。MP4、NPZ、checkpoint 均记录 SHA256，并用 `ffprobe` 验证 H.264、分辨率、帧数和时长。
+
+自动 terminal/结构校验不能代替人类目视检查，因此无论视频是否成功生成，正式状态均保持：
+
+```text
+human_review_completed: false
+```
+
+## 21. 结论与不能声称的内容
+
+P8B 在冻结方法和独立 test 下达到 96.74% settled landing，超过 90%、92%、BC、P8A 和 frozen teacher，并显著降低 deck miss。它支持 separate actor/critic、critic warm-up、冻结 RMS 和 BC anchor 组合在当前任务中有效保护强 BC actor，但不能单独证明某一个组件是提升的唯一原因，也不能把 policy drift 的相关性解释为严格因果。
+
+不能声称：策略使用视觉图像；结果覆盖 yaw、随机波谱、完整六自由度船舶或真实水动力；所有安全指标均比 BC 更好；epoch200 优于 validation-selected；自动 headless 视频已经完成人工 GUI 验收。完整机器可解析证据位于 `benchmarks/phase8b_actor_preserving_ppo/`。
