@@ -19,7 +19,7 @@ from quadcopter_waypoint.tasks.direct.quadrotor_ship_landing.quadrotor_ship_land
 class QuadcopterShipLandingHeaveEnvCfg(QuadcopterShipLandingEnvCfg):
     """Ship landing with vertical deck heave.
 
-    This task freezes the Phase 5D DeckContact baseline and only adds a sinusoidal z-axis deck motion.
+    This task freezes the Deck-Contact Proxy Baseline DeckContact baseline and only adds a sinusoidal z-axis deck motion.
     Roll and pitch are intentionally not included in this stage.
     """
 
@@ -35,7 +35,7 @@ class QuadcopterShipLandingHeaveEnvCfg(QuadcopterShipLandingEnvCfg):
     align_height_max = 1.00
     align_hold_steps = 8
 
-    # Keep the same contact-proxy landing condition from Phase 5D, but tighten xy precision for heave.
+    # Keep the same contact-proxy landing condition from Deck-Contact Proxy Baseline, but tighten xy precision for heave.
     landing_success_radius = 0.10
     landing_contact_clearance = 0.060
     max_landing_surface_penetration = 0.010

@@ -1,4 +1,4 @@
-"""Checkpoint inventory, resumable sweep, selection, and offline drift helpers for P8A."""
+"""Checkpoint inventory, resumable sweep, selection, and offline drift helpers for checkpoint-selection analysis."""
 
 from __future__ import annotations
 
@@ -210,7 +210,7 @@ def resume_key(record: CheckpointRecord, task: str, eval_seed: int, episodes: in
 
 
 def selection_sort_key(row: Mapping[str, Any]) -> tuple[float, float, float, float, int]:
-    """Sort best-first by settled landing and the frozen P8A tie-break rules."""
+    """Sort best-first by settled landing and the frozen checkpoint-selection analysis tie-break rules."""
     touchdown = row.get("touchdown_distance_mean_m")
     touchdown_value = float("inf") if touchdown is None else float(touchdown)
     return (
@@ -277,7 +277,7 @@ def aggregate_checkpoint_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[st
 
 
 def select_validation_best(rows: Iterable[Mapping[str, Any]]) -> dict[int, dict[str, Any]]:
-    """Choose exactly one validation checkpoint per training seed using P8A rules."""
+    """Choose exactly one validation checkpoint per training seed using checkpoint-selection analysis rules."""
     aggregated = aggregate_checkpoint_rows(rows)
     seeds = sorted({int(row["train_seed"]) for row in aggregated if row.get("train_seed") is not None})
     result: dict[int, dict[str, Any]] = {}

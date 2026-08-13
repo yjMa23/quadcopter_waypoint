@@ -1,4 +1,4 @@
-"""Analyze deterministic actor and observation-normalization drift on the frozen P7 test split."""
+"""Analyze deterministic actor and observation-normalization drift on the frozen imitation-learning benchmark test split."""
 
 from __future__ import annotations
 

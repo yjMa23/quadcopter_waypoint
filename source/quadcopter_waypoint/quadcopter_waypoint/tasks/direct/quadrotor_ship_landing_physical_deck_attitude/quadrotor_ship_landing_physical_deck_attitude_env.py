@@ -70,7 +70,7 @@ class QuadcopterShipLandingPhysicalDeckAttitudeEnvCfg(QuadcopterShipLandingPhysi
 
 
 class QuadcopterShipLandingPhysicalDeckAttitudeEnv(QuadcopterShipLandingPhysicalDeckEnv):
-    """Phase 6C environment with deck-frame contact kinematics and attitude-aware landing success."""
+    """Physical-Deck Attitude environment with deck-frame contact kinematics and attitude-aware landing success."""
 
     cfg: QuadcopterShipLandingPhysicalDeckAttitudeEnvCfg
 
@@ -320,7 +320,7 @@ class QuadcopterShipLandingPhysicalDeckAttitudeEnv(QuadcopterShipLandingPhysical
             self._robot.data.root_quat_w,
             kinematics["deck_pos_w"] - self._robot.data.root_pos_w,
         )
-        # Preserve the first 16 columns' P6B semantics at zero attitude: world-frame deck/surface velocity
+        # Preserve the first 16 columns' physical-deck task semantics at zero attitude: world-frame deck/surface velocity
         # minus robot root velocity. New point-rotation effects appear only when deck angular velocity is non-zero.
         deck_surface_rel_linear_velocity_w = (
             kinematics["surface_velocity_w"] - self._robot.data.root_lin_vel_w

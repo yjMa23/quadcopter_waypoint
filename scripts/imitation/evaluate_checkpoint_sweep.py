@@ -1,4 +1,4 @@
-"""Run a resumable P8A checkpoint sweep through the existing formal evaluator."""
+"""Run a resumable checkpoint-selection analysis checkpoint sweep through the existing formal evaluator."""
 
 from __future__ import annotations
 

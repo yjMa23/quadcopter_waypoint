@@ -100,7 +100,7 @@ class QuadcopterShipLandingPhysicalDeckEnvCfg(QuadcopterShipLandingHeaveEnvCfg):
     )
 
     # Stage-A physical-contact thresholds. They are deliberately wider than the final target so the
-    # Phase-5D policy can be evaluated and fine-tuned without changing its 16-D observation contract.
+    # Deck-Contact Proxy Baseline policy can be evaluated and fine-tuned without changing its 16-D observation contract.
     contact_force_threshold = 0.02
     hard_contact_force_threshold = 2.50
     hard_contact_normal_speed = 0.80
@@ -129,7 +129,7 @@ class QuadcopterShipLandingPhysicalDeckEnvCfg(QuadcopterShipLandingHeaveEnvCfg):
 
 
 class QuadcopterShipLandingPhysicalDeckEnv(QuadcopterShipLandingHeaveEnv):
-    """Phase 6B environment using the entity state and contact reports of a physical deck."""
+    """Physical Deck environment using the entity state and contact reports of a physical deck."""
 
     cfg: QuadcopterShipLandingPhysicalDeckEnvCfg
 

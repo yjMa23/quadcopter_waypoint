@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Phase-6C deck motion and independent deck/ground physical contacts."""
+"""Validate Physical-Deck Attitude deck motion and independent deck/ground physical contacts."""
 
 from __future__ import annotations
 

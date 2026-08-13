@@ -1,4 +1,4 @@
-"""Geometry and motion helpers for the Phase-6C physical attitude deck.
+"""Geometry and motion helpers for the Physical-Deck Attitude physical attitude deck.
 
 The module intentionally depends only on PyTorch so quaternion, frame, contact-point velocity, and
 height-safety logic can be validated without launching Isaac Sim. Quaternions use Isaac Lab's
@@ -84,7 +84,7 @@ def world_angular_velocity_from_xyz_rates(
     """Map XYZ Euler rates to angular velocity expressed in the world frame.
 
     For ``R = Rz(yaw) Ry(pitch) Rx(roll)``, the world-frame angular velocity is the sum of each
-    instantaneous rotation axis expressed in world coordinates. In Phase 6C ``yaw == yaw_rate == 0``,
+    instantaneous rotation axis expressed in world coordinates. In Physical-Deck Attitude ``yaw == yaw_rate == 0``,
     which reduces to ``[roll_rate*cos(pitch), pitch_rate, -roll_rate*sin(pitch)]``. Keeping the full
     transform prevents the common but incorrect direct assignment ``omega=[roll_rate,pitch_rate,yaw_rate]``.
     """
@@ -227,7 +227,7 @@ def conservative_minimum_deck_bottom_height(
         if value < 0.0:
             raise ValueError(f"{name} must be non-negative, got {value}")
     if maximum_roll_rad >= 0.5 * math.pi or maximum_pitch_rad >= 0.5 * math.pi:
-        raise ValueError("The conservative Phase-6C height bound requires roll/pitch below 90 degrees.")
+        raise ValueError("The conservative Physical-Deck Attitude height bound requires roll/pitch below 90 degrees.")
     vertical_extent = (
         deck_half_length * math.sin(maximum_pitch_rad)
         + deck_half_width * math.sin(maximum_roll_rad)

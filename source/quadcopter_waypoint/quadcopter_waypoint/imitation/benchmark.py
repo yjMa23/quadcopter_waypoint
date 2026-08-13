@@ -1,4 +1,4 @@
-"""Pure-Python aggregation helpers for P7 closed-loop evaluations and learning curves."""
+"""Pure-Python aggregation helpers for imitation-learning benchmark closed-loop evaluations and learning curves."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def read_evaluation_csv(path: str | Path) -> list[dict[str, str]]:
 
 
 def summarize_episode_rows(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
-    """Summarize the P6C/P7 episode CSV fields used in the fair comparison."""
+    """Summarize the physical-deck-attitude task/imitation-learning benchmark episode CSV fields used in the fair comparison."""
     records = list(rows)
     if not records:
         raise ValueError("at least one episode row is required")

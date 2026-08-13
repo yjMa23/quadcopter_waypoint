@@ -61,9 +61,9 @@ class BCActor(nn.Module):
         super().__init__()
         self.config = config or BCNetworkConfig()
         if self.config.observation_dim != OBSERVATION_DIM or self.config.action_dim != ACTION_DIM:
-            raise ValueError("P7 BC actor requires 22 observations and 4 actions")
+            raise ValueError("imitation-learning benchmark BC actor requires 22 observations and 4 actions")
         if tuple(self.config.hidden_units) != (64, 64) or self.config.activation.lower() != "elu":
-            raise ValueError("P7 BC actor must match PPO actor architecture [64, 64] with ELU")
+            raise ValueError("imitation-learning benchmark BC actor must match PPO actor architecture [64, 64] with ELU")
         mean = torch.as_tensor(running_mean, dtype=torch.float64).reshape(-1)
         var = torch.as_tensor(running_var, dtype=torch.float64).reshape(-1)
         count = torch.as_tensor(running_count, dtype=torch.float64).reshape(())

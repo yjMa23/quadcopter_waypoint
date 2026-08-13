@@ -87,7 +87,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/play.py \
   --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
   --num_envs=1 \
-  --checkpoint=logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_p6b_ep990_16to22.pth
+  --checkpoint=logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth
 ```
 
 ### 4.2 查看 BC-only
@@ -98,7 +98,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/play.py \
   --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
   --num_envs=1 \
-  --checkpoint=logs/imitation/p7_bc/bc_init_rlgames.pth
+  --checkpoint=logs/imitation/behavior_cloning/bc_init_rlgames.pth
 ```
 
 ### 4.3 查看 BC+PPO 主实验 seed 42
@@ -109,7 +109,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/play.py \
   --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
   --num_envs=1 \
-  --checkpoint=logs/rl_games/p7_bc_ppo/seed42/nn/p7_bc_ppo.pth
+  --checkpoint=logs/rl_games/bc_ppo/seed42/nn/bc_ppo.pth
 ```
 
 ### 4.4 查看 PPO-from-scratch seed 42
@@ -120,7 +120,7 @@ PYTHONPATH=source/quadcopter_waypoint \
 /home/j/anaconda3/envs/env_isaaclab/bin/python scripts/rl_games/play.py \
   --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
   --num_envs=1 \
-  --checkpoint=logs/rl_games/p7_ppo_scratch/seed42/nn/p7_ppo_scratch.pth
+  --checkpoint=logs/rl_games/ppo_scratch/seed42/nn/ppo_scratch.pth
 ```
 
 四条命令都不要添加 `--headless`。窗口打开后可观察无人机接近、对准、下降和接触甲板的过程；关闭 Isaac Sim 窗口或在终端按 `Ctrl+C` 可结束运行。

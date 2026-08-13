@@ -16,8 +16,8 @@ source = source.replace(
 )
 source = source.replace(
     "runner.load(agent_cfg)",
-    "from quadcopter_waypoint.imitation.p8b_agent import register_p8b_runner\n"
-    "    register_p8b_runner(runner)\n"
+    "from quadcopter_waypoint.imitation.actor_preserving_agent import register_actor_preserving_runner\n"
+    "    register_actor_preserving_runner(runner)\n"
     "    runner.load(agent_cfg)",
 )
 

@@ -1,0 +1,46 @@
+{
+  "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth",
+  "checkpoint_sha256": "95424bb0d6b98d8dfbf2455d6fd84e99a77d52bca28489654036a25aea5a697d",
+  "created_at_utc": "2026-08-03T17:06:34.526927+00:00",
+  "outcome": "settled_landing",
+  "parallel_envs": 64,
+  "phase_names": {
+    "0": "approach",
+    "1": "align",
+    "2": "descent",
+    "3": "contact_settle"
+  },
+  "seed": 42,
+  "selected_env_id": 26,
+  "steps": 50,
+  "target": "success",
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "terminal": {
+    "deck_contact": true,
+    "deck_miss": false,
+    "deck_position_w": [
+      0.743339478969574,
+      -4.2066216468811035,
+      0.20715558528900146
+    ],
+    "first_contact_body_deck_normal_angle_rad": 0.0037025781348347664,
+    "first_contact_normal_relative_speed_mps": -0.11026125401258469,
+    "first_contact_tangential_relative_speed_mps": 0.1483559012413025,
+    "first_contact_xy_error_m": 0.0941108837723732,
+    "ground_crash": false,
+    "hard_contact": false,
+    "maximum_penetration_m": 0.01999843306839466,
+    "robot_position_w": [
+      0.7850565910339355,
+      -4.114281177520752,
+      0.2433200478553772
+    ],
+    "settled_landing": true,
+    "time_out": false,
+    "touchdown_distance_m": 0.10172093659639359
+  },
+  "trajectory": "teacher_success.npz",
+  "trajectory_sha256": "28c8c5b981294640a7973db145034d8d6a63169824e17241e692bc2a3565247b",
+  "video_generated": false,
+  "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
+}

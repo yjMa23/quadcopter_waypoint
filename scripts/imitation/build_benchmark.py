@@ -1,4 +1,4 @@
-"""Build the committed P7 benchmark, tables, and figures from raw experiment artifacts."""
+"""Build the committed imitation-learning benchmark benchmark, tables, and figures from raw experiment artifacts."""
 
 from __future__ import annotations
 
@@ -26,11 +26,11 @@ CURVE_EPOCHS = (20, 50, 100, 150, 200)
 STEPS_PER_EPOCH = 256 * 24
 TASK_ID = "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0"
 TEACHER_RELATIVE = Path(
-    "logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_p6b_ep990_16to22.pth"
+    "logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth"
 )
-DATASET_MANIFEST_RELATIVE = Path("logs/imitation/p7_expert_dataset/manifest.json")
-BC_RELATIVE = Path("logs/imitation/p7_bc/best_bc.pth")
-BC_INIT_RELATIVE = Path("logs/imitation/p7_bc/bc_init_rlgames.pth")
+DATASET_MANIFEST_RELATIVE = Path("logs/imitation/expert_dataset/manifest.json")
+BC_RELATIVE = Path("logs/imitation/behavior_cloning/best_bc.pth")
+BC_INIT_RELATIVE = Path("logs/imitation/behavior_cloning/bc_init_rlgames.pth")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -80,7 +80,7 @@ def _curve(repo: Path, method: str, include_bc_step_zero: float | None) -> list[
     for epoch in CURVE_EPOCHS:
         summaries = [
             summarize_evaluation_csv(
-                repo / f"logs/imitation/p7_curve/{method}/seed{seed}_epoch{epoch}.csv"
+                repo / f"logs/imitation/learning_curves/{method}/seed{seed}_epoch{epoch}.csv"
             )
             for seed in SEEDS
         ]
@@ -182,7 +182,7 @@ def _plot_learning_curve(output: Path, curves: dict[str, list[dict[str, Any]]], 
 
 def _plot_bc_loss(repo: Path, output: Path) -> None:
     rows: list[dict[str, str]]
-    with (repo / "logs/imitation/p7_bc/loss_curves.csv").open(newline="", encoding="utf-8") as stream:
+    with (repo / "logs/imitation/behavior_cloning/loss_curves.csv").open(newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     figure = plt.figure(figsize=(8, 5))
     epochs = [float(row["epoch"]) for row in rows]
@@ -196,7 +196,7 @@ def _plot_bc_loss(repo: Path, output: Path) -> None:
     plt.tight_layout()
     figure.savefig(output / "bc_train_validation_loss.png", dpi=180)
     plt.close(figure)
-    shutil.copy2(repo / "logs/imitation/p7_bc/loss_curves.csv", output / "bc_loss_curves.csv")
+    shutil.copy2(repo / "logs/imitation/behavior_cloning/loss_curves.csv", output / "bc_loss_curves.csv")
 
 
 def _plot_final_metrics(output: Path, methods: dict[str, dict[str, Any]]) -> None:
@@ -245,7 +245,7 @@ def _commands() -> str:
         "env.deck_roll_frequency_min=0.08 env.deck_roll_frequency_max=0.15 "
         "env.deck_pitch_frequency_min=0.08 env.deck_pitch_frequency_max=0.15"
     )
-    return f"""# P7 reproducibility commands (run from repository root)
+    return f"""# imitation-learning benchmark reproducibility commands (run from repository root)
 export PYTHONPATH=source/quadcopter_waypoint
 PY=/home/j/anaconda3/envs/env_isaaclab/bin/python
 TASK={TASK_ID}
@@ -253,14 +253,14 @@ TEACHER={TEACHER_RELATIVE}
 
 # Collection was run independently with seeds 42, 43, and 44.
 $PY scripts/imitation/collect_teacher.py --task=$TASK --checkpoint=$TEACHER \\
-  --output_dir logs/imitation/p7_expert_dataset/seed_42 --seed=42 --num_envs=64 \\
+  --output_dir logs/imitation/expert_dataset/seed_42 --seed=42 --num_envs=64 \\
   --successful_episodes=700 --transitions=180000 --episodes_per_shard=100 --max_steps=200000 --headless {overrides}
 
-$PY scripts/imitation/finalize_dataset.py --dataset_dir logs/imitation/p7_expert_dataset \\
+$PY scripts/imitation/finalize_dataset.py --dataset_dir logs/imitation/expert_dataset \\
   --split_seed=2026 --min_successful_episodes=2000 --min_transitions=500000
 
 $PY scripts/imitation/train_bc.py --manifest={DATASET_MANIFEST_RELATIVE} --teacher_checkpoint=$TEACHER \\
-  --output_dir=logs/imitation/p7_bc --seed=42 --epochs=50 --batch_size=4096 --learning_rate=1e-3 --patience=10
+  --output_dir=logs/imitation/behavior_cloning --seed=42 --epochs=50 --batch_size=4096 --learning_rate=1e-3 --patience=10
 
 $PY scripts/imitation/create_bc_init_checkpoint.py --bc_checkpoint={BC_RELATIVE} \\
   --template_checkpoint=$TEACHER --manifest={DATASET_MANIFEST_RELATIVE} \\
@@ -268,9 +268,9 @@ $PY scripts/imitation/create_bc_init_checkpoint.py --bc_checkpoint={BC_RELATIVE}
 
 # Fair online runs: same task, 256 envs, seed set, 200 epochs, and PPO config.
 $PY scripts/rl_games/train.py --task=$TASK --num_envs=256 --seed=42 --headless --max_iterations=200 \\
-  agent.params.config.name=p7_ppo_scratch +agent.params.config.full_experiment_name=seed42
+  agent.params.config.name=ppo_scratch +agent.params.config.full_experiment_name=seed42
 $PY scripts/rl_games/train.py --task=$TASK --num_envs=256 --seed=42 --headless --max_iterations=200 \\
-  --checkpoint={BC_INIT_RELATIVE} agent.params.config.name=p7_bc_ppo \\
+  --checkpoint={BC_INIT_RELATIVE} agent.params.config.name=bc_ppo \\
   +agent.params.config.full_experiment_name=seed42
 
 # Formal evaluation pattern; repeat for seeds 42/43/44 and each selected checkpoint.
@@ -283,7 +283,7 @@ $PY scripts/imitation/build_benchmark.py
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", default="benchmarks/phase7_imitation_hybrid")
+    parser.add_argument("--output", default="benchmarks/imitation_hybrid")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     tree_dirty_before_generation = bool(_git(repo, "status", "--porcelain"))
@@ -292,18 +292,18 @@ def main() -> None:
 
     source_paths = {
         "PPO teacher": {
-            str(seed): repo / f"logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/p6c_final_seed{seed}.csv"
+            str(seed): repo / f"logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/physical_deck_attitude_final_seed{seed}.csv"
             for seed in SEEDS
         },
-        "BC only": {str(seed): repo / f"logs/imitation/p7_bc/formal_seed{seed}.csv" for seed in SEEDS},
+        "BC only": {str(seed): repo / f"logs/imitation/behavior_cloning/formal_seed{seed}.csv" for seed in SEEDS},
         "PPO scratch": {
-            str(seed): repo / f"logs/imitation/p7_formal/p7_ppo_scratch/seed{seed}.csv" for seed in SEEDS
+            str(seed): repo / f"logs/imitation/formal_evaluations/ppo_scratch/seed{seed}.csv" for seed in SEEDS
         },
         "BC+PPO": {
-            str(seed): repo / f"logs/imitation/p7_formal/p7_bc_ppo/seed{seed}.csv" for seed in SEEDS
+            str(seed): repo / f"logs/imitation/formal_evaluations/bc_ppo/seed{seed}.csv" for seed in SEEDS
         },
         "BC+PPO lr1e-5 diagnostic": {
-            str(seed): repo / f"logs/imitation/p7_formal/p7_bc_ppo_lr1e5/seed{seed}.csv" for seed in SEEDS
+            str(seed): repo / f"logs/imitation/formal_evaluations/bc_ppo_lr1e5/seed{seed}.csv" for seed in SEEDS
         },
     }
     copied_paths = {
@@ -313,7 +313,7 @@ def main() -> None:
     rollout_output = output / "rollout_cases"
     rollout_output.mkdir(parents=True, exist_ok=True)
     rollout_cases: dict[str, Any] = {}
-    for source in sorted((repo / "logs/imitation/p7_rollout_cases").glob("*.npz")):
+    for source in sorted((repo / "logs/imitation/rollout_cases").glob("*.npz")):
         target = rollout_output / source.name
         metadata_source = source.with_suffix(source.suffix + ".json")
         metadata_target = rollout_output / metadata_source.name
@@ -334,8 +334,8 @@ def main() -> None:
 
     bc_rate = primary["BC only"]["aggregate"]["settled_landing_rate"]["mean"]
     curves = {
-        "PPO scratch": _curve(repo, "p7_ppo_scratch", include_bc_step_zero=None),
-        "BC+PPO": _curve(repo, "p7_bc_ppo", include_bc_step_zero=bc_rate),
+        "PPO scratch": _curve(repo, "ppo_scratch", include_bc_step_zero=None),
+        "BC+PPO": _curve(repo, "bc_ppo", include_bc_step_zero=bc_rate),
     }
     thresholds = {name: threshold_crossing_steps(rows) for name, rows in curves.items()}
     thresholds["BC only"] = {"80%": 0 if bc_rate >= 0.8 else None, "90%": 0 if bc_rate >= 0.9 else None, "92%": 0 if bc_rate >= 0.92 else None}
@@ -359,9 +359,9 @@ def main() -> None:
             for row in rows:
                 writer.writerow({"method": name, **row})
 
-    dataset_summary = _read_json(repo / "logs/imitation/p7_expert_dataset/dataset_summary.json")
+    dataset_summary = _read_json(repo / "logs/imitation/expert_dataset/dataset_summary.json")
     _write_json(output / "dataset_summary.json", dataset_summary)
-    bc_metrics = _read_json(repo / "logs/imitation/p7_bc/metrics.json")
+    bc_metrics = _read_json(repo / "logs/imitation/behavior_cloning/metrics.json")
     _write_json(output / "bc_metrics.json", bc_metrics)
 
     training_runs = {
@@ -375,10 +375,10 @@ def main() -> None:
             "training_seeds": list(SEEDS),
             "checkpoint_selection_rule": "highest RL-Games rolling mean episode reward",
         },
-        "ppo_scratch": [_training_run(repo, "p7_ppo_scratch", seed, 1.0e-4) for seed in SEEDS],
-        "bc_ppo": [_training_run(repo, "p7_bc_ppo", seed, 1.0e-4) for seed in SEEDS],
+        "ppo_scratch": [_training_run(repo, "ppo_scratch", seed, 1.0e-4) for seed in SEEDS],
+        "bc_ppo": [_training_run(repo, "bc_ppo", seed, 1.0e-4) for seed in SEEDS],
         "diagnostic_bc_ppo_lr1e5": [
-            _training_run(repo, "p7_bc_ppo_lr1e5", seed, 1.0e-5) for seed in SEEDS
+            _training_run(repo, "bc_ppo_lr1e5", seed, 1.0e-5) for seed in SEEDS
         ],
         "diagnostic_note": (
             "The one permitted targeted correction reduced the configured initial learning rate from 1e-4 to 1e-5. "
@@ -392,7 +392,7 @@ def main() -> None:
     bc_checkpoint = repo / BC_RELATIVE
     bc_init = repo / BC_INIT_RELATIVE
     summary = {
-        "benchmark": "P7 expert demonstrations, behavior cloning, and BC-initialized PPO",
+        "benchmark": "imitation-learning benchmark expert demonstrations, behavior cloning, and BC-initialized PPO",
         "code_commit": _git(repo, "rev-parse", "HEAD"),
         "working_tree_dirty_before_generation": tree_dirty_before_generation,
         "task_id": TASK_ID,
@@ -454,7 +454,7 @@ def main() -> None:
     _plot_failures(output, primary)
     (output / "commands.txt").write_text(_commands(), encoding="utf-8")
 
-    readme = f"""# P7 Imitation + Hybrid Benchmark
+    readme = f"""# imitation-learning benchmark Imitation + Hybrid Benchmark
 
 This directory is generated from raw CSV/JSON artifacts by `scripts/imitation/build_benchmark.py`.
 
@@ -473,7 +473,7 @@ The current policy is state based. It contains no camera image input and no real
 Paper-style formulation, equations, algorithm design, implementation traceability, and discussion:
 
 ```text
-docs/p7_imitation_hybrid_paper.md
+docs/imitation_hybrid_paper.md
 ```
 
 Interactive display and headless-rendering diagnosis:

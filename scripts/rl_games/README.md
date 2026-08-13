@@ -6,7 +6,7 @@
 import quadcopter_waypoint.tasks
 ```
 
-不修改 Isaac Lab 官方源码或安装环境中的 RL-Games 源码。P8B custom agent 通过项目 wrapper 在 `Runner` 构造后注册。
+不修改 Isaac Lab 官方源码或安装环境中的 RL-Games 源码。actor-preserving PPO custom agent 通过项目 wrapper 在 `Runner` 构造后注册。
 
 ## 文件
 
@@ -17,7 +17,7 @@ eval_metrics.py                            独立评估与逐 episode CSV
 eval_metrics_utils.py                      可脱离 Isaac Sim 测试的统计辅助逻辑
 expand_checkpoint_observation.py           16→22 维 rl_games checkpoint 迁移
 check_physical_deck_attitude_physics.py     甲板运动与 deck/ground 接触诊断
-summarize_physical_deck_attitude.py         P6C 三种子 benchmark 聚合
+summarize_physical_deck_attitude.py         physical-deck-attitude task 三种子 benchmark 聚合
 ```
 
 ## 训练
@@ -41,7 +41,7 @@ python scripts/rl_games/train.py \
   --checkpoint <CHECKPOINT>
 ```
 
-rl_games 会继承 checkpoint 内 epoch 计数，因此 `--max_iterations` 必须大于 checkpoint epoch。P8B checkpoint 还会恢复嵌入的冻结 BC reference actor、warm-up epoch、optimizer 和 RMS 冻结语义。
+rl_games 会继承 checkpoint 内 epoch 计数，因此 `--max_iterations` 必须大于 checkpoint epoch。actor-preserving PPO checkpoint 还会恢复嵌入的冻结 BC reference actor、warm-up epoch、optimizer 和 RMS 冻结语义。
 
 当前 PPO 配置：
 
@@ -58,19 +58,19 @@ minibatch_size = 384
 
 最小合法环境数为 16，不要使用 4 环境。
 
-P8B 训练必须显式选择 separate actor/critic 配置：
+actor-preserving PPO 训练必须显式选择 separate actor/critic 配置：
 
 ```bash
 python scripts/rl_games/train.py \
   --task=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 \
-  --agent=rl_games_p8b_cfg_entry_point \
+  --agent=rl_games_actor_preserving_cfg_entry_point \
   --num_envs=256 --seed=42 --headless --max_iterations=200 \
-  --checkpoint=logs/imitation/p8b_actor_preserving/bc_init_separate_formal_lambda50.pth \
-  agent.params.config.name=p8b_formal_lambda50 \
+  --checkpoint=logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  agent.params.config.name=actor_preserving_formal_lambda50 \
   +agent.params.config.full_experiment_name=seed42
 ```
 
-P8B 的 epoch 1–10 为 critic-only warm-up；actor、fixed sigma、observation RMS 和 adaptive LR scheduler 均冻结。epoch 11 从基础 `1e-4` learning rate 开始 actor 更新，并加入预注册的 BC mean-action L2 anchor。
+actor-preserving PPO 的 epoch 1–10 为 critic-only warm-up；actor、fixed sigma、observation RMS 和 adaptive LR scheduler 均冻结。epoch 11 从基础 `1e-4` learning rate 开始 actor 更新，并加入预注册的 BC mean-action L2 anchor。
 
 ## 播放
 
@@ -81,7 +81,7 @@ python scripts/rl_games/play.py \
   --checkpoint <CHECKPOINT>
 ```
 
-任务 ID、网络结构、观测维度和 checkpoint 必须对应。P8B separate checkpoint 播放也必须显式添加 `--agent=rl_games_p8b_cfg_entry_point`。
+任务 ID、网络结构、观测维度和 checkpoint 必须对应。actor-preserving PPO separate checkpoint 播放也必须显式添加 `--agent=rl_games_actor_preserving_cfg_entry_point`。
 
 ## 评估
 
@@ -96,9 +96,9 @@ python scripts/rl_games/eval_metrics.py \
   --headless
 ```
 
-正式结果至少运行所有冻结 training/evaluation seed，不能只报告最好 seed。P8B separate checkpoint 的评估命令必须添加 `--agent=rl_games_p8b_cfg_entry_point`；P8A/P7 shared checkpoint 继续使用默认 agent。
+正式结果至少运行所有冻结 training/evaluation seed，不能只报告最好 seed。actor-preserving PPO separate checkpoint 的评估命令必须添加 `--agent=rl_games_actor_preserving_cfg_entry_point`；checkpoint-selection analysis/imitation-learning benchmark shared checkpoint 继续使用默认 agent。
 
-P8B 正式协议已完成：8 个去重 P8B/BC 物理 checkpoint 在 test seeds 245/246/247 上各运行 256 episodes，共 24 条、6144 episodes，全部 completed。metric-selected 三 training seed 聚合 settled landing 为 96.7448%，完整 manifest 和逐 episode CSV 见 `logs/imitation/p8b_actor_preserving/formal_test/`，可提交聚合见 `benchmarks/phase8b_actor_preserving_ppo/`。
+actor-preserving PPO 正式协议已完成：8 个去重 actor-preserving PPO/BC 物理 checkpoint 在 test seeds 245/246/247 上各运行 256 episodes，共 24 条、6144 episodes，全部 completed。metric-selected 三 training seed 聚合 settled landing 为 96.7448%，完整 manifest 和逐 episode CSV 见 `logs/imitation/actor_preserving_ppo/formal_test/`，可提交聚合见 `benchmarks/actor_preserving_ppo/`。
 
 ## Terminal 状态锁存
 
@@ -175,7 +175,7 @@ timeout_rate
 
 ### ShipLanding marker / proxy
 
-Phase 5D、Phase 6A：
+Deck-Contact Proxy Baseline、Heave-Precision Proxy：
 
 ```text
 align_success_rate
@@ -192,7 +192,7 @@ timeout_rate
 
 ### PhysicalDeck
 
-Phase 6B 额外输出：
+Physical Deck 额外输出：
 
 ```text
 contact_success_rate
@@ -215,7 +215,7 @@ maximum_penetration
 
 ### PhysicalDeckAttitude
 
-P6C 在 Phase 6B 字段基础上增加：
+physical-deck-attitude task 在 Physical Deck 字段基础上增加：
 
 ```text
 first_contact_deck_roll / pitch / tilt
@@ -238,20 +238,20 @@ deck angular-speed buckets
 ```bash
 PYTHONPATH=source/quadcopter_waypoint python \
   scripts/rl_games/expand_checkpoint_observation.py \
-  --input <P6B_16D.pth> \
-  --output <P6C_22D.pth>
+  --input <physical-deck_16D.pth> \
+  --output <physical-deck-attitude_22D.pth>
 ```
 
 迁移器会检查真实 state-dict key 和 shape，复制第一层前 16 列，将新增 6 列置零，扩展 observation mean/variance，并同步扩展 Adam moment。源文件和已存在的输出文件均不会被覆盖；旁路 JSON 保存输入/输出 SHA256。
 
-## P6C 物理诊断
+## physical-deck-attitude task 物理诊断
 
 ```bash
 PYTHONPATH=source/quadcopter_waypoint python \
   scripts/rl_games/check_physical_deck_attitude_physics.py \
   --num_envs=16 \
   --motion_steps=500 \
-  --output benchmarks/phase6c_physical_deck_attitude/physics_check_16env.json \
+  --output benchmarks/physical_deck_attitude/physics_check_16env.json \
   --headless
 ```
 

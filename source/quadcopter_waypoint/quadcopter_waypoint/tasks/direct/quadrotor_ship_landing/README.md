@@ -279,7 +279,7 @@ landing_target_height = 0.08
 
 该设置比 0.16 更接近板面，同时比 0.08 更容易稳定训练。
 
-## Phase 5A：低速匀速移动平台
+## Low-Speed Moving Pad：低速匀速移动平台
 
 当前版本已经从静态平台推进到低速匀速移动平台。
 
@@ -356,7 +356,7 @@ python scripts/rl_games/eval_metrics.py \
 | touchdown rel vel mean | 0.0560 m/s |
 | touchdown rel vel P95 | 0.0679 m/s |
 
-## Phase 5B：中速匀速移动平台
+## Medium-Speed Moving Pad：中速匀速移动平台
 
 当前版本已经将平台速度提高到：
 
@@ -365,7 +365,7 @@ pad_velocity_xy_range = 0.10 m/s
 pad_vel_x, pad_vel_y ∈ [-0.10, 0.10] m/s
 ```
 
-为了让高速一些的平台仍能尽量落在 pad 中心区域，当前 reward 在 Phase 5A 基础上增强了水平对准项：
+为了让高速一些的平台仍能尽量落在 pad 中心区域，当前 reward 在 Low-Speed Moving Pad 基础上增强了水平对准项：
 
 ```text
 progress_reward_scale = 5.0
@@ -382,7 +382,7 @@ landing_success_height = 0.10 m
 landing_success_rel_vel = 0.30 m/s
 ```
 
-当前 Phase 5B 稳定 checkpoint：
+当前 Medium-Speed Moving Pad 稳定 checkpoint：
 
 ```text
 logs/rl_games/quadcopter_ship_landing/2026-06-29_10-59-53/nn/quadcopter_ship_landing.pth
@@ -422,7 +422,7 @@ python scripts/rl_games/eval_metrics.py \
 | touchdown rel vel mean | 0.1984 m/s |
 | touchdown rel vel P95 | 0.2483 m/s |
 
-该版本相比 Phase 5A 落点误差变大，但能在 `±0.10 m/s` 平台速度下保持 100% 成功率和 0 crash。相比第一版 Phase 5B，落点均值从约 `0.110 m` 降到 `0.082 m`，但触地相对速度升高。因此后续继续加速前，建议先补充更细的速度质量指标。
+该版本相比 Low-Speed Moving Pad 落点误差变大，但能在 `±0.10 m/s` 平台速度下保持 100% 成功率和 0 crash。相比第一版 Medium-Speed Moving Pad，落点均值从约 `0.110 m` 降到 `0.082 m`，但触地相对速度升高。因此后续继续加速前，建议先补充更细的速度质量指标。
 
 下一步建议先做评估脚本增强，而不是直接继续加速：
 
@@ -434,7 +434,7 @@ final_vertical_speed
 mean_horizontal_speed
 ```
 
-## Phase 5C：更快匀速移动平台
+## Fast Moving Pad：更快匀速移动平台
 
 当前版本已经将平台速度继续提高到：
 
@@ -449,7 +449,7 @@ pad_vel_x, pad_vel_y ∈ [-0.20, 0.20] m/s
 pad initial x/y ∈ [-0.5, 0.5] m
 ```
 
-当前 Phase 5C 推荐 checkpoint：
+当前 Fast Moving Pad 推荐 checkpoint：
 
 ```text
 logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/nn/last_quadcopter_ship_landing_ep_600_rew_41.586376.pth
@@ -467,7 +467,7 @@ python scripts/rl_games/eval_metrics.py \
   --checkpoint logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/nn/last_quadcopter_ship_landing_ep_600_rew_41.586376.pth \
   --num_envs=64 \
   --episodes=256 \
-  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_phase5c_plus.csv \
+  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_moving_pad_precision.csv \
   --headless
 ```
 
@@ -485,9 +485,9 @@ python scripts/rl_games/eval_metrics.py \
 | touchdown rel vel mean | 0.1453 m/s |
 | touchdown rel vel P95 | 0.2646 m/s |
 
-该版本能明显看到平台移动速度提升，并且仍能保持 100% 成功率。代价是落点误差相较 Phase 5B 进一步变大，P95 接近当前 landing success 半径上限。
+该版本能明显看到平台移动速度提升，并且仍能保持 100% 成功率。代价是落点误差相较 Medium-Speed Moving Pad 进一步变大，P95 接近当前 landing success 半径上限。
 
-## Phase 5C+：增强评估指标
+## Moving-Pad Precision Baseline：增强评估指标
 
 `eval_metrics.py` 已增强 ShipLanding 的行为质量评估，新增逐 episode 指标：
 
@@ -503,7 +503,7 @@ pad_speed
 pad_speed_bucket
 ```
 
-Phase 5C checkpoint 的增强评估结果：
+Fast Moving Pad checkpoint 的增强评估结果：
 
 | 指标 | 结果 |
 | --- | ---: |
@@ -536,14 +536,14 @@ Phase 5C checkpoint 的增强评估结果：
 3. 当前策略的最终触地相对速度可接受，但中途 max_descent_speed 偏高，说明下降过程还不够平滑。
 ```
 
-## Phase 5C-Smooth：已尝试但不采用
+## Smooth-Control Attempt：已尝试但不采用
 
 在进入正弦船舶运动前，曾尝试保持 `pad_velocity_xy_range = 0.20 m/s` 不变，只优化下降过程的平滑性。
 
-本阶段尝试前已备份 Phase 5C+ 状态：
+本阶段尝试前已备份 Moving-Pad Precision Baseline 状态：
 
 ```text
-backups/phase5c_plus/README.md
+backups/moving_pad_precision/README.md
 ```
 
 Smooth v2 checkpoint：
@@ -554,7 +554,7 @@ logs/rl_games/quadcopter_ship_landing/2026-06-29_12-12-33/nn/quadcopter_ship_lan
 
 Smooth v2 评估结果：
 
-| 指标 | Phase 5C+ | Smooth v2 |
+| 指标 | Moving-Pad Precision Baseline | Smooth v2 |
 | --- | ---: | ---: |
 | landing success rate | 100% | 100% |
 | crash rate | 0% | 0% |
@@ -571,20 +571,20 @@ Smooth v2 评估结果：
 结论：
 
 ```text
-Smooth v2 虽然降低了下降速度峰值，但 GUI 观察效果不理想，并且落点误差、触地相对速度和 landing time 均变差。因此当前不采用 Smooth v2，代码和主线 checkpoint 已回退到 Phase 5C+。
+Smooth v2 虽然降低了下降速度峰值，但 GUI 观察效果不理想，并且落点误差、触地相对速度和 landing time 均变差。因此当前不采用 Smooth v2，代码和主线 checkpoint 已回退到 Moving-Pad Precision Baseline。
 ```
 
-当前主线继续使用 Phase 5C+ checkpoint：
+当前主线继续使用 Moving-Pad Precision Baseline checkpoint：
 
 ```text
 logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/nn/last_quadcopter_ship_landing_ep_600_rew_41.586376.pth
 ```
 
-## Phase 5C-Contact：更接近板面的终止条件
+## Contact-Condition Attempt：更接近板面的终止条件
 
 为解决 GUI 中无人机仍与平台存在轻微距离就结束的问题，本阶段不进入正弦船舶运动，而是继续优化 landing success 的高度条件。
 
-原 Phase 5C+ 终止条件：
+原 Moving-Pad Precision Baseline 终止条件：
 
 ```text
 landing_success_height = 0.10
@@ -592,7 +592,7 @@ landing_target_height = 0.08
 landing_success_hold_steps = 4
 ```
 
-Phase 5C-Contact v1 曾尝试：
+Contact-Condition Attempt v1 曾尝试：
 
 ```text
 landing_success_height = 0.07
@@ -614,7 +614,7 @@ landing_success_rel_vel = 0.32
 注意：Contact v4 的最佳组合不是重新训练得到的 checkpoint，而是：
 
 ```text
-Contact v4 代码条件 + 原 Phase 5C+ checkpoint
+Contact v4 代码条件 + 原 Moving-Pad Precision Baseline checkpoint
 ```
 
 推荐 checkpoint：
@@ -633,13 +633,13 @@ python scripts/rl_games/eval_metrics.py \
   --checkpoint logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/nn/last_quadcopter_ship_landing_ep_600_rew_41.586376.pth \
   --num_envs=64 \
   --episodes=256 \
-  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_phase5c_checkpoint_contact_v4_env.csv \
+  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_moving_pad_precision_checkpoint_contact_v4_env.csv \
   --headless
 ```
 
 256 个 episode 评估结果：
 
-| 指标 | Phase 5C+ 原条件 | Contact v4 条件 + Phase 5C+ checkpoint |
+| 指标 | Moving-Pad Precision Baseline 原条件 | Contact v4 条件 + Moving-Pad Precision Baseline checkpoint |
 | --- | ---: | ---: |
 | landing success rate | 100% | 100% |
 | crash rate | 0% | 0% |
@@ -659,9 +659,9 @@ python scripts/rl_games/eval_metrics.py \
 4. Contact v4 继续作为当前贴近平台的高度终止条件。
 ```
 
-## Phase 5C-Track：下降阶段持续横向跟踪
+## Descent-Tracking Attempt：下降阶段持续横向跟踪
 
-针对 GUI 中观察到的现象：无人机一开始能对齐移动平台，但下降过程中没有继续匹配平台横向速度，导致越降越偏。本阶段不进入正弦船舶运动，而是在 Phase 5C-Contact 基础上增加下降阶段横向跟踪约束。
+针对 GUI 中观察到的现象：无人机一开始能对齐移动平台，但下降过程中没有继续匹配平台横向速度，导致越降越偏。本阶段不进入正弦船舶运动，而是在 Contact-Condition Attempt 基础上增加下降阶段横向跟踪约束。
 
 当前新增参数：
 
@@ -689,7 +689,7 @@ predicted_pad_error_reward_scale = -2.0
 注意：Track v1 的最佳组合不是重新训练出来的 checkpoint，而是：
 
 ```text
-Track v1 代码条件 + 原 Phase 5C+ checkpoint
+Track v1 代码条件 + 原 Moving-Pad Precision Baseline checkpoint
 ```
 
 推荐 checkpoint：
@@ -708,13 +708,13 @@ python scripts/rl_games/eval_metrics.py \
   --checkpoint logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/nn/last_quadcopter_ship_landing_ep_600_rew_41.586376.pth \
   --num_envs=64 \
   --episodes=256 \
-  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_phase5c_checkpoint_track_v1_env.csv \
+  --csv logs/rl_games/quadcopter_ship_landing/2026-06-29_11-16-09/eval_metrics_moving_pad_precision_checkpoint_track_v1_env.csv \
   --headless
 ```
 
 256 个 episode 评估结果：
 
-| 指标 | Contact v4 条件 | Track v1 条件 + Phase 5C+ checkpoint |
+| 指标 | Contact v4 条件 | Track v1 条件 + Moving-Pad Precision Baseline checkpoint |
 | --- | ---: | ---: |
 | landing success rate | 100% | 100% |
 | crash rate | 0% | 0% |
@@ -735,7 +735,7 @@ python scripts/rl_games/eval_metrics.py \
 1. Track v1 约束能降低下降末端的水平相对速度。
 2. 高速 pad 分桶下的落点误差从 0.1008 m 降到 0.0859 m。
 3. 无人机在下降过程中会更倾向于继续带着 pad 的横向速度走。
-4. 当前主线：Track v1 代码条件 + 原 Phase 5C+ checkpoint。
+4. 当前主线：Track v1 代码条件 + 原 Moving-Pad Precision Baseline checkpoint。
 ```
 
 ## Deck proxy 尝试记录：接触式判定不能直接替换成功条件
@@ -761,13 +761,13 @@ landing_surface_clearance = robot_bottom_height - pad_surface_height
 结论：
 
 ```text
-1. 仅靠旧 Phase 5C+ checkpoint 无法稳定满足真正接触代理条件。
+1. 仅靠旧 Moving-Pad Precision Baseline checkpoint 无法稳定满足真正接触代理条件。
 2. Deck proxy 作为成功终止条件需要重新训练新策略，而不是直接套旧 checkpoint。
-3. 当前代码主线仍使用稳定的 Track v1 判定；landing_surface_clearance 已保留，后续用于 Phase 5D/Deck-Contact 训练。
+3. 当前代码主线仍使用稳定的 Track v1 判定；landing_surface_clearance 已保留，后续用于 Deck-Contact Proxy Baseline/Deck-Contact 训练。
 4. 如果下一阶段加入横滚/起伏，必须把 pad 从 marker 升级为具有姿态和表面法向的 deck 状态，最好进一步升级为带碰撞的实体平台。
 ```
 
-## Phase 5D-DeckContact：接触代理降落
+## Deck-Contact Proxy Baseline：接触代理降落
 
 本阶段正式将 landing success 从 root 高度阈值升级为接触代理判定：
 
@@ -852,15 +852,15 @@ python scripts/rl_games/eval_metrics.py \
 结论：
 
 ```text
-1. Phase 5D 已经从“几何高度成功”升级为“机体底部接近 deck 顶面成功”。
+1. Deck-Contact Proxy Baseline 已经从“几何高度成功”升级为“机体底部接近 deck 顶面成功”。
 2. 当前成功率 99.22%，0 crash，已经可作为进入平台起伏前的接触代理基线。
 3. 仍有极少数 timeout，后续可通过更长训练或实体 deck/contact sensor 继续消除。
-4. 进入 Phase 6 前，建议先保持该 checkpoint，播放 GUI 观察是否确实更像“落到平台上”。
+4. 进入 Moving-Deck Environment 前，建议先保持该 checkpoint，播放 GUI 观察是否确实更像“落到平台上”。
 ```
 
 ### 冻结说明
 
-当前 `quadrotor_ship_landing` 任务目录作为 Phase 5D-DeckContact 基线记录，不再直接在该目录继续迭代下一阶段。
+当前 `quadrotor_ship_landing` 任务目录作为 Deck-Contact Proxy Baseline 基线记录，不再直接在该目录继续迭代下一阶段。
 
 后续如果继续做平台起伏、roll / pitch 或实体 deck，应新建独立任务目录和任务 ID，例如：
 
@@ -876,11 +876,11 @@ quadrotor_ship_landing_deck_motion
 Isaac-Quadcopter-ShipLanding-DeckMotion-Direct-v0
 ```
 
-新任务可以从当前 `quadrotor_ship_landing` 拷贝初始化，但后续修改不再污染 Phase 5D 基线。
+新任务可以从当前 `quadrotor_ship_landing` 拷贝初始化，但后续修改不再污染 Deck-Contact Proxy Baseline 基线。
 
 ### Terminal 指标修复
 
-Phase 5D 环境保留了通用 terminal-state latch，供 Phase 5D、Phase 6A 和后续派生任务使用。Isaac Lab `DirectRLEnv.step()` 会在返回前自动 reset 完成环境，底层 Tensor 是 live reference，reset 后的零值不能作为 terminal 指标。
+Deck-Contact Proxy Baseline 环境保留了通用 terminal-state latch，供 Deck-Contact Proxy Baseline、Heave-Precision Proxy 和后续派生任务使用。Isaac Lab `DirectRLEnv.step()` 会在返回前自动 reset 完成环境，底层 Tensor 是 live reference，reset 后的零值不能作为 terminal 指标。
 
 环境在 reset 覆盖状态前锁存：
 
@@ -898,8 +898,8 @@ terminated / timeout
 ### 后续阶段状态
 
 ```text
-Phase 6A Heave Precision: 已完成并冻结，仍为 marker / contact proxy
-Phase 6B PhysicalDeck: 已在独立任务目录完成实体 deck 和真实接触基线
+Heave-Precision Proxy Heave Precision: 已完成并冻结，仍为 marker / contact proxy
+Physical Deck PhysicalDeck: 已在独立任务目录完成实体 deck 和真实接触基线
 ```
 
 因此本目录不再承担 heave、实体 deck 或 roll / pitch 的新增实现。

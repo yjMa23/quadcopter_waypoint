@@ -1,4 +1,4 @@
-"""Dataset schema, validation, splitting, and loading for P7 expert trajectories."""
+"""Dataset schema, validation, splitting, and loading for imitation-learning benchmark expert trajectories."""
 
 from __future__ import annotations
 

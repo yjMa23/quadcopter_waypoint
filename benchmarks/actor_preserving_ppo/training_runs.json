@@ -1,0 +1,46 @@
+{
+  "runs": [
+    {
+      "environment_steps": 1228800,
+      "epochs": 200,
+      "final_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/last_actor_preserving_formal_lambda50_ep_200_rew_60.280838.pth",
+      "final_checkpoint_sha256": "6f17b77536a9baea41f2cd8054d57848febc5a72796b70b676c6c7ad3fc88804",
+      "periodic_checkpoints": 20,
+      "reward_selected_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth",
+      "reward_selected_checkpoint_sha256": "82679de01f6077d9dd6a42e474588d6665333bf74e2df43ead9b29904d17aa0a",
+      "run_dir": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed42",
+      "tensorboard_event": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed42/summaries/events.out.tfevents.1785898499.j-MS-7D48",
+      "tensorboard_event_sha256": "15bdb2fed366d804c460e73457f1e59690e2ae9c646613d787a7bb96aefeb0ea",
+      "training_seed": 42,
+      "wall_clock_seconds_from_tensorboard": null
+    },
+    {
+      "environment_steps": 1228800,
+      "epochs": 200,
+      "final_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/last_actor_preserving_formal_lambda50_ep_200_rew_53.727707.pth",
+      "final_checkpoint_sha256": "9bf6eab84d20227415264e1a444ce8b953c1a6f65ede2de88f55893b408f431b",
+      "periodic_checkpoints": 20,
+      "reward_selected_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/actor_preserving_formal_lambda50.pth",
+      "reward_selected_checkpoint_sha256": "4202453317c5059d5b784f654d16c7e48e1c84336382dc57549230ac788001ef",
+      "run_dir": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed43",
+      "tensorboard_event": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed43/summaries/events.out.tfevents.1785898736.j-MS-7D48",
+      "tensorboard_event_sha256": "f438237c69db3bbf0c972d480e2772202df38a237eb6380d9f0a524d36eb451c",
+      "training_seed": 43,
+      "wall_clock_seconds_from_tensorboard": null
+    },
+    {
+      "environment_steps": 1228800,
+      "epochs": 200,
+      "final_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/last_actor_preserving_formal_lambda50_ep_200_rew_61.19736.pth",
+      "final_checkpoint_sha256": "dd1cc8fba4e7c7e5e225599b5aa54654e648eda5d90badf8f3603b05c160202a",
+      "periodic_checkpoints": 20,
+      "reward_selected_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/actor_preserving_formal_lambda50.pth",
+      "reward_selected_checkpoint_sha256": "49d1271607c39c9272839592342dc17efb76bc698879b813c481681ad2d7b15e",
+      "run_dir": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed44",
+      "tensorboard_event": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed44/summaries/events.out.tfevents.1785898973.j-MS-7D48",
+      "tensorboard_event_sha256": "e9db4e2d29897e3e4778a62e24f33a535de4b7de65ccd05d4bab1c50f007601c",
+      "training_seed": 44,
+      "wall_clock_seconds_from_tensorboard": null
+    }
+  ]
+}

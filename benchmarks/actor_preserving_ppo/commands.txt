@@ -1,0 +1,134 @@
+# actor-preserving PPO reproducibility commands
+# Run from /home/j/Isaac_RL_Projects/quadcopter_waypoint.
+# Formal test seeds 245/246/247 are never passed to the validation-selection command.
+
+export PYTHONPATH=source/quadcopter_waypoint
+PY=/home/j/anaconda3/envs/env_isaaclab/bin/python
+TASK=Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0
+ACTOR_PRESERVING_AGENT=rl_games_actor_preserving_cfg_entry_point
+
+# Documentation/config synchronization
+$PY -m pytest -q tests/test_actor_preserving_documentation_sync.py
+
+# Shared BC-init -> separate actor/critic formal migration (output must not already exist)
+$PY scripts/imitation/create_actor_preserving_checkpoint.py \
+  --source_checkpoint logs/imitation/behavior_cloning/bc_init_rlgames.pth \
+  --config source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck_attitude/agents/rl_games_actor_preserving_ppo_cfg.yaml \
+  --dataset_manifest logs/imitation/expert_dataset/manifest.json \
+  --output logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --critic_seed 2026
+
+# Formal training template; repeat only with seeds 42, 43, 44.
+$PY scripts/rl_games/train.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT --num_envs=256 --seed=42 --headless \
+  --max_iterations=200 \
+  --checkpoint=logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  agent.params.config.name=actor_preserving_formal_lambda50 \
+  +agent.params.config.full_experiment_name=seed42
+
+# Formal validation was run as one resumable sweep per training seed, with the same num_envs=48 grid.
+$PY scripts/imitation/evaluate_checkpoint_sweep.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --run_dirs logs/rl_games/actor_preserving_formal_lambda50/seed42 \
+  --bc_checkpoint logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --include_reward_selected \
+  --output_dir logs/imitation/actor_preserving_ppo/formal_validation \
+  --num_envs=48 --episodes=128 --eval_seeds 145 146 147 --headless --resume
+
+$PY scripts/imitation/evaluate_checkpoint_sweep.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --run_dirs logs/rl_games/actor_preserving_formal_lambda50/seed43 \
+  --bc_checkpoint logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --include_reward_selected \
+  --output_dir logs/imitation/actor_preserving_ppo/formal_validation_seed43 \
+  --num_envs=48 --episodes=128 --eval_seeds 145 146 147 --headless --resume
+
+$PY scripts/imitation/evaluate_checkpoint_sweep.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --run_dirs logs/rl_games/actor_preserving_formal_lambda50/seed44 \
+  --bc_checkpoint logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --include_reward_selected \
+  --output_dir logs/imitation/actor_preserving_ppo/formal_validation_seed44 \
+  --num_envs=48 --episodes=128 --eval_seeds 145 146 147 --headless --resume
+
+# Validation-only checkpoint selection; writes formal_checkpoint_plan.json before any formal test.
+$PY scripts/imitation/finalize_actor_preserving_benchmark.py select \
+  --validation_manifests \
+    logs/imitation/actor_preserving_ppo/formal_validation/sweep_manifest.json \
+    logs/imitation/actor_preserving_ppo/formal_validation_seed43/sweep_manifest.json \
+    logs/imitation/actor_preserving_ppo/formal_validation_seed44/sweep_manifest.json \
+  --inventories \
+    logs/imitation/actor_preserving_ppo/formal_validation/checkpoint_inventory.json \
+    logs/imitation/actor_preserving_ppo/formal_validation_seed43/checkpoint_inventory.json \
+    logs/imitation/actor_preserving_ppo/formal_validation_seed44/checkpoint_inventory.json \
+  --bc_checkpoint logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --expected_num_envs=48 \
+  --output_dir benchmarks/actor_preserving_ppo
+
+# Independent formal test: eight deduplicated physical checkpoints selected/planned above.
+$PY scripts/imitation/evaluate_checkpoint_sweep.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --checkpoint_paths \
+    logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/last_actor_preserving_formal_lambda50_ep_200_rew_60.280838.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/last_actor_preserving_formal_lambda50_ep_30_rew_63.345257.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/actor_preserving_formal_lambda50.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/last_actor_preserving_formal_lambda50_ep_200_rew_53.727707.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/actor_preserving_formal_lambda50.pth \
+    logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/last_actor_preserving_formal_lambda50_ep_200_rew_61.19736.pth \
+  --output_dir logs/imitation/actor_preserving_ppo/formal_test \
+  --num_envs=64 --episodes=256 --eval_seeds 245 246 247 --headless --resume
+
+# Formal policy drift on the frozen imitation-learning benchmark test observation split.
+$PY scripts/imitation/analyze_actor_preserving_drift.py \
+  --manifest logs/imitation/expert_dataset/manifest.json \
+  --run_dirs \
+    logs/rl_games/actor_preserving_formal_lambda50/seed42 \
+    logs/rl_games/actor_preserving_formal_lambda50/seed43 \
+    logs/rl_games/actor_preserving_formal_lambda50/seed44 \
+  --bc_checkpoint logs/imitation/actor_preserving_ppo/bc_init_separate_formal_lambda50.pth \
+  --include_reward_selected \
+  --output_dir logs/imitation/actor_preserving_ppo/formal_drift
+
+# Targeted headless videos. The deck miss was deterministically located at single-env episode 148.
+$PY scripts/imitation/record_rollout_case.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --checkpoint logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth \
+  --output benchmarks/actor_preserving_ppo/videos/selected_success.npz \
+  --seed=245 --num_envs=1 --target=success --max_steps=20000 \
+  --video --video_fps=25 --video_stride=2 --video_width=640 --video_height=360 \
+  --headless --enable_cameras
+
+$PY scripts/imitation/record_rollout_case.py \
+  --task=$TASK --agent=$ACTOR_PRESERVING_AGENT \
+  --checkpoint logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth \
+  --output benchmarks/actor_preserving_ppo/videos/selected_failure.npz \
+  --seed=245 --num_envs=1 --target=failure --failure_type=deck_miss --max_steps=20000 \
+  --video --video_start_episode=148 --video_fps=25 --video_stride=2 \
+  --video_width=640 --video_height=360 --headless --enable_cameras
+
+$PY scripts/imitation/build_video_manifest.py \
+  --sidecars \
+    benchmarks/actor_preserving_ppo/videos/selected_success.json \
+    benchmarks/actor_preserving_ppo/videos/selected_failure.json \
+  --output benchmarks/actor_preserving_ppo/videos/video_manifest.json
+
+# Final benchmark aggregation, historical comparison, prediction verification and figures.
+$PY scripts/imitation/finalize_actor_preserving_benchmark.py finalize \
+  --selection_plan benchmarks/actor_preserving_ppo/formal_checkpoint_plan.json \
+  --formal_manifests logs/imitation/actor_preserving_ppo/formal_test/sweep_manifest.json \
+  --formal_num_envs=64 \
+  --reference_manifest logs/imitation/checkpoint_selection/formal/sweep_manifest.json \
+  --reference_num_envs=64 \
+  --teacher_checkpoint logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth \
+  --formal_drift logs/imitation/actor_preserving_ppo/formal_drift/policy_drift.json \
+  --formal_run_root logs/rl_games/actor_preserving_formal_lambda50 \
+  --imitation_summary benchmarks/imitation_hybrid/summary.json \
+  --checkpoint_selection_summary benchmarks/checkpoint_selection/summary.json \
+  --video_manifest benchmarks/actor_preserving_ppo/videos/video_manifest.json \
+  --output_dir benchmarks/actor_preserving_ppo
+
+# Full acceptance suite.
+$PY -m pytest -q tests
+git diff --check

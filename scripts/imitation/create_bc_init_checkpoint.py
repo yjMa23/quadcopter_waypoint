@@ -1,4 +1,4 @@
-"""Create and verify a fresh PPO checkpoint initialized from the standalone P7 BC actor."""
+"""Create and verify a fresh PPO checkpoint initialized from the standalone imitation-learning benchmark BC actor."""
 
 from __future__ import annotations
 

@@ -1,0 +1,11 @@
+# actor-preserving PPO Formal Comparison
+
+| Method | Episodes | Settled landing | Deck miss | Hard contact | Ground crash | Timeout |
+|---|---:|---:|---:|---:|---:|---:|
+| Frozen PPO teacher | 768 | 94.66% | 5.34% | 0.13% | 0.00% | 0.00% |
+| BC epoch 0 | 768 | 86.20% | 13.80% | 0.00% | 0.00% | 0.00% |
+| ordinary BC+PPO | 768 | 76.69% | 23.05% | 0.91% | 0.00% | 0.00% |
+| checkpoint-selected BC+PPO | 2304 | 91.67% | 8.33% | 0.30% | 0.00% | 0.00% |
+| actor-preserving PPO metric-selected | 2304 | 96.74% | 3.17% | 0.09% | 0.00% | 0.04% |
+| actor-preserving PPO reward-selected | 2304 | 95.40% | 4.51% | 0.13% | 0.00% | 0.04% |
+| actor-preserving PPO epoch-200 last | 2304 | 92.40% | 7.55% | 0.04% | 0.00% | 0.04% |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate Phase-6C per-episode CSV files into the frozen benchmark JSON."""
+"""Aggregate Physical-Deck Attitude per-episode CSV files into the frozen benchmark JSON."""
 
 from __future__ import annotations
 
@@ -160,7 +160,7 @@ def main() -> None:
     args = parse_args()
     csv_dir = args.csv_dir.resolve()
     checkpoint = args.checkpoint.resolve()
-    final_paths = {seed: csv_dir / f"p6c_final_seed{seed}.csv" for seed in (42, 43, 44)}
+    final_paths = {seed: csv_dir / f"physical_deck_attitude_final_seed{seed}.csv" for seed in (42, 43, 44)}
     zero_paths = {seed: csv_dir / f"zero_tilt_final_seed{seed}.csv" for seed in (42, 43, 44)}
     final_by_seed = {seed: read_csv(path, seed) for seed, path in final_paths.items()}
     zero_by_seed = {seed: read_csv(path, seed) for seed, path in zero_paths.items()}
@@ -200,7 +200,7 @@ def main() -> None:
         "env.deck_pitch_frequency_min=0.08 env.deck_pitch_frequency_max=0.15"
     )
     benchmark = {
-        "phase": "P6C-PhysicalDeckAttitude",
+        "phase": "physical-deck-attitude task-PhysicalDeckAttitude",
         "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
         "rl_games_experiment": "quadcopter_ship_landing_physical_deck_attitude",
         "code_commit": args.code_commit,
@@ -243,13 +243,13 @@ def main() -> None:
                 "horizon_length": 24,
                 "minibatch_size": 384,
                 "candidate_comparison": candidates,
-                "selection": "All fine-tuned candidates regressed; retain the expanded P6B ep990 checkpoint.",
+                "selection": "All fine-tuned candidates regressed; retain the expanded physical-deck task ep990 checkpoint.",
             },
         },
         "physics_validation": {
-            "one_env_report": "benchmarks/phase6c_physical_deck_attitude/physics_check_1env.json",
-            "sixteen_env_report": "benchmarks/phase6c_physical_deck_attitude/physics_check_16env.json",
-            "gui_report": "benchmarks/phase6c_physical_deck_attitude/gui_check.json",
+            "one_env_report": "benchmarks/physical_deck_attitude/physics_check_1env.json",
+            "sixteen_env_report": "benchmarks/physical_deck_attitude/physics_check_16env.json",
+            "gui_report": "benchmarks/physical_deck_attitude/gui_check.json",
             "human_visual_inspection_completed": False,
         },
         "metric_definitions": {

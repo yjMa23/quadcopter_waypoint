@@ -1,7 +1,7 @@
 # Copyright (c) 2026
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Record one deterministic success or representative failure as an objective P7 state trajectory."""
+"""Record one deterministic success or representative failure as an objective imitation-learning benchmark state trajectory."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 
 import quadcopter_waypoint.tasks  # noqa: F401
 from quadcopter_waypoint.imitation.dataset import sha256_file
-from quadcopter_waypoint.imitation.p8b_checkpoint import actor_weights_sha256
+from quadcopter_waypoint.imitation.actor_preserving_checkpoint import actor_weights_sha256
 
 
 def _phase(task_env) -> torch.Tensor:
@@ -163,9 +163,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     agent_cfg["params"]["load_path"] = str(checkpoint)
     agent_cfg["params"]["config"]["num_actors"] = task_env.num_envs
     runner = Runner()
-    from quadcopter_waypoint.imitation.p8b_agent import register_p8b_runner
+    from quadcopter_waypoint.imitation.actor_preserving_agent import register_actor_preserving_runner
 
-    register_p8b_runner(runner)
+    register_actor_preserving_runner(runner)
     runner.load(agent_cfg)
     agent: BasePlayer = runner.create_player()
     agent.restore(str(checkpoint))
@@ -287,7 +287,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     seed_match = re.search(r"(?:^|/)seed(?P<seed>\d+)(?:/|$)", str(checkpoint))
     metadata = {
         "task_id": args_cli.task,
-        "scenario": "P6C moving physical deck with heave, roll, and pitch",
+        "scenario": "physical-deck-attitude task moving physical deck with heave, roll, and pitch",
         "checkpoint": str(checkpoint),
         "checkpoint_sha256": sha256_file(checkpoint),
         "actor_sha256": actor_weights_sha256(checkpoint_model),

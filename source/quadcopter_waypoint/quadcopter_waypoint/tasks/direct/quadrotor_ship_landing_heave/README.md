@@ -3,10 +3,10 @@
 ## Stage
 
 ```text
-Phase 6A-Heave-Precision
+Heave-Precision Proxy
 ```
 
-This task is a new independent task forked from the frozen Phase 5D-DeckContact baseline.
+This task is a new independent task forked from the frozen Deck-Contact Proxy Baseline baseline.
 
 It does **not** modify `quadrotor_ship_landing/`.
 
@@ -18,7 +18,7 @@ Isaac-Quadcopter-ShipLanding-Heave-Direct-v0
 
 ## Freeze status
 
-Phase 6A is frozen as the last marker / geometric-contact-proxy heave baseline. It is not a physical deck task and must not be used as evidence for real collision or contact sensing.
+Heave-Precision Proxy is frozen as the last marker / geometric-contact-proxy heave baseline. It is not a physical deck task and must not be used as evidence for real collision or contact sensing.
 
 The terminal-state evaluator was repaired before freezing. `DirectRLEnv.step()` resets completed environments before returning, so the environment now latches terminal robot and pad state before reset. The evaluator reads that exact latch rather than reset tensors or a pre-step approximation.
 
@@ -39,7 +39,7 @@ Three-seed formal evaluation (`seed=42,43,44`, 256 episodes each):
 Evidence:
 
 ```text
-benchmarks/phase6a_heave_precision/summary.json
+benchmarks/heave_precision/summary.json
 ```
 
 ## Goal
@@ -99,7 +99,7 @@ However, the current recommended checkpoint is **not** the fine-tuned center-rew
 
 ## Current recommended checkpoint
 
-The current recommended checkpoint remains the Phase 5D checkpoint:
+The current recommended checkpoint remains the Deck-Contact Proxy Baseline checkpoint:
 
 ```text
 logs/rl_games/quadcopter_ship_landing/2026-06-30_15-21-37/nn/last_quadcopter_ship_landing_ep_650_rew_34.6081.pth
@@ -122,7 +122,7 @@ python scripts/rl_games/eval_metrics.py \
   --num_envs=64 \
   --episodes=256 \
   --seed=42 \
-  --csv logs/rl_games/quadcopter_ship_landing_heave/p6a_freeze_seed42.csv \
+  --csv logs/rl_games/quadcopter_ship_landing_heave/heave_precision_freeze_seed42.csv \
   --headless
 ```
 
@@ -132,7 +132,7 @@ The table below is the repaired terminal-latch evaluation for seed 42. The three
 
 256-episode evaluation:
 
-| Metric | Phase 6A-Heave-Precision |
+| Metric | Heave-Precision Proxy |
 | --- | ---: |
 | landing success rate | 98.44% |
 | align success rate | 99.61% |
@@ -226,7 +226,7 @@ Therefore, no Precision v2 trained checkpoint is adopted.
 The current main version remains:
 
 ```text
-Heave task code + landing_success_radius = 0.10 + Phase 5D checkpoint
+Heave task code + landing_success_radius = 0.10 + Deck-Contact Proxy Baseline checkpoint
 ```
 
 ## Tried but not selected
@@ -292,9 +292,9 @@ python scripts/rl_games/play.py \
 ## Current conclusion
 
 ```text
-Phase 6A-Heave-Precision adopted version:
+Heave-Precision Proxy adopted version:
   landing_success_radius = 0.10
-  checkpoint = Phase 5D ep650 checkpoint
+  checkpoint = Deck-Contact Proxy Baseline ep650 checkpoint
   success rate = 98.44%
   crash rate = 0%
   timeout rate = 1.56%

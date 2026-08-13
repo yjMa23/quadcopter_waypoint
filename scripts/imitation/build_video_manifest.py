@@ -1,4 +1,4 @@
-"""Validate targeted P8B rollout videos and build the formal video manifest."""
+"""Validate targeted actor-preserving PPO rollout videos and build the formal video manifest."""
 
 from __future__ import annotations
 

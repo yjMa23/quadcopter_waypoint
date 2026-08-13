@@ -3,7 +3,7 @@
 ## 阶段定位
 
 ```text
-Phase 6B PhysicalDeck
+Physical Deck PhysicalDeck
 ```
 
 独立任务：
@@ -18,7 +18,7 @@ rl_games 实验名：
 quadcopter_ship_landing_physical_deck
 ```
 
-本任务从已冻结的 Phase 6A Heave Precision 派生，但不修改 Phase 5D 或 Phase 6A 目录。目标是先证明无人机能在水平、平移且升沉的实体甲板上完成真实接触和稳定降落，再进入 roll / pitch。
+本任务从已冻结的 Heave-Precision Proxy Heave Precision 派生，但不修改 Deck-Contact Proxy Baseline 或 Heave-Precision Proxy 目录。目标是先证明无人机能在水平、平移且升沉的实体甲板上完成真实接触和稳定降落，再进入 roll / pitch。
 
 ## 当前运动范围
 
@@ -102,7 +102,7 @@ robot-ground contact
 
 ## 状态真值与观测兼容
 
-策略观测仍保持 Phase 5D / Phase 6A 的 16 维接口，便于迁移旧 checkpoint。
+策略观测仍保持 Deck-Contact Proxy Baseline / Heave-Precision Proxy 的 16 维接口，便于迁移旧 checkpoint。
 
 实体 deck 的：
 
@@ -229,7 +229,7 @@ deck_miss_rate = 32.81%
 timeout_rate = 6.25%
 ```
 
-结论：Phase 5D checkpoint 能产生真实 deck 接触，但偏心落点和接触后滑出明显，不能直接采用。
+结论：Deck-Contact Proxy Baseline checkpoint 能产生真实 deck 接触，但偏心落点和接触后滑出明显，不能直接采用。
 
 ## 微调课程
 
@@ -286,7 +286,7 @@ python scripts/rl_games/eval_metrics.py \
   --num_envs=64 \
   --episodes=256 \
   --seed=42 \
-  --csv logs/rl_games/quadcopter_ship_landing_physical_deck/p6b_final_seed42.csv \
+  --csv logs/rl_games/quadcopter_ship_landing_physical_deck/physical_deck_final_seed42.csv \
   --headless
 ```
 
@@ -315,7 +315,7 @@ maximum observed penetration = 0.0203 m
 完整 benchmark：
 
 ```text
-benchmarks/phase6b_physical_deck/summary.json
+benchmarks/physical_deck/summary.json
 ```
 
 ## 训练命令
@@ -355,7 +355,7 @@ python scripts/rl_games/play.py \
 
 ## 当前结论
 
-Phase 6B 已达到推荐验收目标：
+Physical Deck 已达到推荐验收目标：
 
 ```text
 三种子 settled landing >= 95%

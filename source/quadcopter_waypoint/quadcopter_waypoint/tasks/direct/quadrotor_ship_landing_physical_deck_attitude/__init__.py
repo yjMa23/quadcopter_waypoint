@@ -16,6 +16,6 @@ gym.register(
             "QuadcopterShipLandingPhysicalDeckAttitudeEnvCfg"
         ),
         "rl_games_cfg_entry_point": f"{__name__}.agents:rl_games_ppo_cfg.yaml",
-        "rl_games_p8b_cfg_entry_point": f"{__name__}.agents:rl_games_p8b_ppo_cfg.yaml",
+        "rl_games_actor_preserving_cfg_entry_point": f"{__name__}.agents:rl_games_actor_preserving_ppo_cfg.yaml",
     },
 )

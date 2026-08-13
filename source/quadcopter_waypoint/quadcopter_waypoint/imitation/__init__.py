@@ -1,4 +1,4 @@
-"""Phase 7 imitation-learning utilities for the physical-deck landing task."""
+"""Imitation-learning utilities for the physical-deck landing task."""
 
 from .checkpoint import build_bc_initialized_rlgames_checkpoint
 from .dataset import (

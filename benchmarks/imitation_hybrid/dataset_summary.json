@@ -1,0 +1,70 @@
+{
+  "action": {
+    "max": [
+      1.0,
+      0.3775637149810791,
+      0.5032309293746948,
+      0.800979733467102
+    ],
+    "mean": [
+      0.05449085083365767,
+      -0.0007987059630191082,
+      -0.004560370185673563,
+      -0.0025690641238680706
+    ],
+    "min": [
+      -1.0,
+      -0.5119528770446777,
+      -0.5023630261421204,
+      -0.5381256341934204
+    ],
+    "std": [
+      0.30485142269053556,
+      0.041182301683039525,
+      0.03368119664604612,
+      0.07019896501307757
+    ]
+  },
+  "episode_length": {
+    "max": 494,
+    "mean": 135.89562374245472,
+    "min": 40,
+    "p95": 225.25,
+    "std": 51.2342965190515
+  },
+  "episodes_by_seed": {
+    "42": 1333,
+    "43": 1320,
+    "44": 1323
+  },
+  "manifest": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/expert_dataset/manifest.json",
+  "manifest_sha256": "72847f6c9bb6f6c2c10d2f9862dd894ccd91c5ecb69bbbe948120a0ab8f64744",
+  "phase_counts": {
+    "align": 187752,
+    "approach": 79119,
+    "contact_settle": 22097,
+    "descent": 251353
+  },
+  "phase_fractions": {
+    "align": 0.3474823299483085,
+    "approach": 0.14642962239113416,
+    "contact_settle": 0.0408960599347425,
+    "descent": 0.4651919877258148
+  },
+  "split": {
+    "test": {
+      "episodes": 399,
+      "transitions": 51901
+    },
+    "train": {
+      "episodes": 3180,
+      "transitions": 434288
+    },
+    "validation": {
+      "episodes": 397,
+      "transitions": 54132
+    }
+  },
+  "successful_episodes": 3976,
+  "transitions": 540321
+}

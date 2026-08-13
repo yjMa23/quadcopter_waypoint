@@ -1,0 +1,83 @@
+{
+  "stage": "Physical Deck PhysicalDeck",
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeck-Direct-v0",
+  "base_code_commit": "80ef7b2",
+  "code_commit": "the Git commit containing this manifest",
+  "checkpoint": "logs/rl_games/quadcopter_ship_landing_physical_deck/2026-08-03_18-46-00/nn/last_quadcopter_ship_landing_physical_deck_ep_990_rew_61.680832.pth",
+  "checkpoint_sha256": "614cf3bea439883b7b2c478f0dd21641f9eb750df9f08d711d8cf122f133b3aa",
+  "evaluation": {
+    "num_envs": 64,
+    "episodes_per_seed": 256,
+    "seeds": [42, 43, 44],
+    "command_template": "python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-PhysicalDeck-Direct-v0 --checkpoint <checkpoint> --num_envs=64 --episodes=256 --seed=<seed> --csv=<csv> --headless"
+  },
+  "metric_semantics": {
+    "contact_success": "at least one filtered robot-deck contact report during the episode",
+    "settled_landing": "first contact is inside the 0.12 m precision region and safe contact persists for three control steps",
+    "hard_contact": "deck contact exceeds force, normal-relative-speed, or penetration limit",
+    "ground_crash": "filtered robot-ground-slab contact or robot below crash height",
+    "deck_miss": "first contact outside the precision region or the robot passes outside the effective deck",
+    "successful_first_contact_xy_p95": "P95 over successful episodes only, in the horizontal deck frame",
+    "maximum_penetration": "maximum positive overlap inferred from robot landing-surface clearance"
+  },
+  "aggregate": {
+    "episodes": 768,
+    "contact_success": 768,
+    "settled_landing": 738,
+    "hard_contact": 0,
+    "ground_crash": 0,
+    "deck_miss": 30,
+    "timeout": 0,
+    "contact_success_rate": 1.0,
+    "settled_landing_rate": 0.9609375,
+    "hard_contact_rate": 0.0,
+    "ground_crash_rate": 0.0,
+    "deck_miss_rate": 0.0390625,
+    "timeout_rate": 0.0,
+    "touchdown_distance_mean_m": 0.05627087777705111,
+    "touchdown_distance_p50_m": 0.054305028170347214,
+    "touchdown_distance_p90_m": 0.09402988031506537,
+    "touchdown_distance_p95_m": 0.10220908187329769,
+    "successful_first_contact_xy_p95_m": 0.10001919306814669,
+    "first_contact_normal_relative_speed_mean_mps": -0.1544432900813667,
+    "first_contact_tangential_relative_speed_mean_mps": 0.20344800395552867,
+    "max_contact_force_mean_n": 0.29809041177919565,
+    "settle_time_mean_s": 0.23544714798731856,
+    "maximum_penetration_max_m": 0.020287901163101196
+  },
+  "per_seed": [
+    {
+      "seed": 42,
+      "episodes": 256,
+      "settled_landing": 247,
+      "hard_contact": 0,
+      "ground_crash": 0,
+      "deck_miss": 9,
+      "timeout": 0,
+      "source_csv": "logs/rl_games/quadcopter_ship_landing_physical_deck/physical_deck_final_seed42.csv",
+      "source_csv_sha256": "42f781c0c01ee7fa704907d25336149371c833c363a5ff7284f99f962b527dc0"
+    },
+    {
+      "seed": 43,
+      "episodes": 256,
+      "settled_landing": 249,
+      "hard_contact": 0,
+      "ground_crash": 0,
+      "deck_miss": 7,
+      "timeout": 0,
+      "source_csv": "logs/rl_games/quadcopter_ship_landing_physical_deck/physical_deck_final_seed43.csv",
+      "source_csv_sha256": "413f1dbcd83fd859ec4071c83fce00b25f0e15663785df78b2f56b970587f57e"
+    },
+    {
+      "seed": 44,
+      "episodes": 256,
+      "settled_landing": 242,
+      "hard_contact": 0,
+      "ground_crash": 0,
+      "deck_miss": 14,
+      "timeout": 0,
+      "source_csv": "logs/rl_games/quadcopter_ship_landing_physical_deck/physical_deck_final_seed44.csv",
+      "source_csv_sha256": "048ca28f4d684e53aafda7bc4298e3f56f75ee0141d8dc50700b15b091e55668"
+    }
+  ]
+}

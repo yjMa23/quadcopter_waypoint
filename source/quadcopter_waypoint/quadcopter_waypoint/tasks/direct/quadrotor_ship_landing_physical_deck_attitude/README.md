@@ -1,4 +1,4 @@
-# P6C-PhysicalDeckAttitude
+# physical-deck-attitude task-PhysicalDeckAttitude
 
 Task ID:
 
@@ -12,31 +12,31 @@ rl_games experiment:
 quadcopter_ship_landing_physical_deck_attitude
 ```
 
-P6C is an independent successor to the frozen P6B physical-deck task. It keeps the real kinematic
+physical-deck-attitude task is an independent successor to the frozen physical-deck task physical-deck task. It keeps the real kinematic
 `Deck`, real `GroundSlab`, and two filtered `ContactSensor` instances, then adds absolute-time roll and
-pitch motion. P6B files are not modified to implement the new dynamics.
+pitch motion. physical-deck task files are not modified to implement the new dynamics.
 
-## P7 use of this frozen task
+## imitation-learning benchmark use of this frozen task
 
-P7 does not change this environment's observation, reward, contact, termination, or motion semantics. It
-uses the frozen P6C checkpoint as a deterministic expert, then compares PPO-from-scratch, Behavior
+imitation-learning benchmark does not change this environment's observation, reward, contact, termination, or motion semantics. It
+uses the frozen physical-deck-attitude task checkpoint as a deterministic expert, then compares PPO-from-scratch, Behavior
 Cloning, and BC-initialized PPO under the same task and formal evaluator.
 
-Formal P7 theory and evidence:
+Formal imitation-learning benchmark theory and evidence:
 
 ```text
-docs/p7_imitation_hybrid_paper.md
-benchmarks/phase7_imitation_hybrid/summary.json
-benchmarks/phase7_imitation_hybrid/formal_evaluations/
-docs/interview_p7_evidence.md
+docs/imitation_hybrid_paper.md
+benchmarks/imitation_hybrid/summary.json
+benchmarks/imitation_hybrid/formal_evaluations/
+docs/imitation_hybrid_interview_evidence.md
 ```
 
-The paper-style document derives the deck/contact kinematics, 22-D observation, 4-D action mapping, phase-weighted BC objective, checkpoint migration, PPO fine-tuning objective, evaluation protocol, and measured negative result. Its `CODE_SYNC` block is checked against the current source by `tests/test_p7_documentation_sync.py`.
+The paper-style document derives the deck/contact kinematics, 22-D observation, 4-D action mapping, phase-weighted BC objective, checkpoint migration, PPO fine-tuning objective, evaluation protocol, and measured negative result. Its `CODE_SYNC` block is checked against the current source by `tests/test_imitation_documentation_sync.py`.
 
-P7 collected 3976 successful episodes / 540321 transitions. BC-only achieved 88.28% settled landing
+imitation-learning benchmark collected 3976 successful episodes / 540321 transitions. BC-only achieved 88.28% settled landing
 across seeds 42/43/44 (256 episodes each), while the fair BC+PPO run achieved 76.69% and exhibited policy
 drift. These are retained as measured results; the environment remains frozen at tag
-`p6c-physical-deck-attitude-v1`.
+`physical-deck-attitude-v1`.
 
 The policy is state based and does not contain camera images or real visual projection inputs.
 
@@ -76,7 +76,7 @@ ground slab top + safety margin
 ```
 
 The bound includes deck half-length, half-width, half-thickness, maximum heave, maximum roll, and maximum
-pitch. The default validated envelope is ±8 degrees with a 0.04 m safety margin; the frozen P6C
+pitch. The default validated envelope is ±8 degrees with a 0.04 m safety margin; the frozen physical-deck-attitude task
 curriculum uses up to ±5 degrees.
 
 ## Deck-frame contact kinematics
@@ -114,7 +114,7 @@ world uprightness, sustained contact, no hard contact, and bounded penetration.
 | `16:19` | deck normal | robot body, unit vector |
 | `19:22` | deck angular velocity minus robot angular velocity | robot body, rad/s |
 
-The first 16 columns preserve P6B zero-attitude semantics. No full quaternion is exposed to the policy.
+The first 16 columns preserve physical-deck task zero-attitude semantics. No full quaternion is exposed to the policy.
 
 ## Checkpoint migration
 
@@ -122,8 +122,8 @@ Use:
 
 ```bash
 PYTHONPATH=source/quadcopter_waypoint python scripts/rl_games/expand_checkpoint_observation.py \
-  --input <P6B_CHECKPOINT.pth> \
-  --output <P6C_22D_CHECKPOINT.pth>
+  --input <PHYSICAL_DECK_CHECKPOINT.pth> \
+  --output <physical-deck-attitude_22D_CHECKPOINT.pth>
 ```
 
 The tool copies the first 16 policy-input columns, initializes the six new columns to zero, extends
@@ -160,7 +160,7 @@ env.deck_pitch_frequency_min=0.06
 env.deck_pitch_frequency_max=0.12
 ```
 
-Stage D, frozen P6C range:
+Stage D, frozen physical-deck-attitude task range:
 
 ```text
 env.deck_roll_amplitude_max_deg=5.0
@@ -172,7 +172,7 @@ env.deck_pitch_frequency_max=0.15
 ```
 
 Yaw oscillation, random wave spectra, hydrodynamics, and coupled six-degree-of-freedom ship motion are
-not part of P6C.
+not part of physical-deck-attitude task.
 
 ## Validation commands
 
@@ -191,5 +191,5 @@ PYTHONPATH=source/quadcopter_waypoint python \
 ```
 
 Formal evaluation uses 64 environments, 256 episodes per seed, and seeds 42/43/44. See
-`benchmarks/phase6c_physical_deck_attitude/summary.json` for the frozen checkpoint, exact commands,
+`benchmarks/physical_deck_attitude/summary.json` for the frozen checkpoint, exact commands,
 per-seed metrics, tilt buckets, angular-speed buckets, and acceptance result.

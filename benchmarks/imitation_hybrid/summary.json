@@ -1,0 +1,1272 @@
+{
+  "acceptance_criteria": {
+    "bc_only_settled_landing_at_least_80_percent": true,
+    "bc_ppo_final_settled_landing_at_least_92_percent": false,
+    "bc_ppo_reaches_90_percent_before_scratch": false,
+    "dataset_successful_episodes_at_least_2000": true,
+    "dataset_transitions_at_least_500000": true
+  },
+  "acceptance_result": "PARTIAL",
+  "artifacts": {
+    "bc_checkpoint": "logs/imitation/behavior_cloning/best_bc.pth",
+    "bc_checkpoint_sha256": "44d49d53cabffd14e6e1a0f8639b422ae4f13881c9b5f24d36b801f4a9d93c67",
+    "bc_init_rlgames_checkpoint": "logs/imitation/behavior_cloning/bc_init_rlgames.pth",
+    "bc_init_rlgames_checkpoint_sha256": "0669022b8b88af22a3ef3a3baebdd1d3c32c26ff0095ef9e2a2498b3e3aa7517",
+    "dataset_manifest": "logs/imitation/expert_dataset/manifest.json",
+    "dataset_manifest_sha256": "72847f6c9bb6f6c2c10d2f9862dd894ccd91c5ecb69bbbe948120a0ab8f64744",
+    "teacher_checkpoint": "logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth",
+    "teacher_checkpoint_sha256": "95424bb0d6b98d8dfbf2455d6fd84e99a77d52bca28489654036a25aea5a697d"
+  },
+  "bc_offline": {
+    "best_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/behavior_cloning/best_bc.pth",
+    "best_checkpoint_sha256": "44d49d53cabffd14e6e1a0f8639b422ae4f13881c9b5f24d36b801f4a9d93c67",
+    "best_epoch": 50,
+    "best_validation_weighted_mse": 0.00019732758542524142,
+    "dataset_manifest_sha256": "72847f6c9bb6f6c2c10d2f9862dd894ccd91c5ecb69bbbe948120a0ab8f64744",
+    "last_checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/behavior_cloning/last_bc.pth",
+    "last_checkpoint_sha256": "532db03f0252f94271b48cbe40c79db869eeac89f2c461c4c9e09ffbd9dd909c",
+    "normalization_count": 18063361.0,
+    "test": {
+      "action_mse": [
+        0.00044782922753975165,
+        6.992660399836218e-05,
+        5.3878192065462704e-05,
+        9.454842849571657e-05
+      ],
+      "phase_mse": {
+        "align": 8.730700003370893e-05,
+        "approach": 0.0002658674453083292,
+        "contact_settle": 0.0002533198963379022,
+        "descent": 0.00018676007624683714
+      },
+      "transitions": 51901,
+      "weighted_mse": 0.00016654561460391397
+    },
+    "train": {
+      "action_mse": [
+        0.0004430739188039982,
+        6.813229516803612e-05,
+        5.242741101796306e-05,
+        9.157063470291743e-05
+      ],
+      "phase_mse": {
+        "align": 9.047428359926803e-05,
+        "approach": 0.0002563274108878197,
+        "contact_settle": 0.0002551408307980383,
+        "descent": 0.00018167581383132287
+      },
+      "transitions": 434288,
+      "weighted_mse": 0.0001638010644262451
+    },
+    "training_config": {
+      "batch_size": 4096,
+      "device": "cuda:0",
+      "epochs": 50,
+      "learning_rate": 0.001,
+      "patience": 10,
+      "phase_weighting": true,
+      "test_transitions": 51901,
+      "train_transitions": 434288,
+      "validation_transitions": 54132,
+      "weight_decay": 0.0
+    },
+    "validation": {
+      "action_mse": [
+        0.0004336388229328399,
+        6.867112598882179e-05,
+        5.432939119590216e-05,
+        9.117871927557011e-05
+      ],
+      "phase_mse": {
+        "align": 8.588193147858801e-05,
+        "approach": 0.0002389322679126614,
+        "contact_settle": 0.0002828796728184732,
+        "descent": 0.00018161647559877768
+      },
+      "transitions": 54132,
+      "weighted_mse": 0.00016195451247404062
+    },
+    "wall_time_s": 234.32627914199838
+  },
+  "benchmark": "imitation-learning benchmark expert demonstrations, behavior cloning, and BC-initialized PPO",
+  "code_commit": "691b8cefdc9971755ef07f3c02d935d62b43ef15",
+  "dataset": {
+    "action": {
+      "max": [
+        1.0,
+        0.3775637149810791,
+        0.5032309293746948,
+        0.800979733467102
+      ],
+      "mean": [
+        0.05449085083365767,
+        -0.0007987059630191082,
+        -0.004560370185673563,
+        -0.0025690641238680706
+      ],
+      "min": [
+        -1.0,
+        -0.5119528770446777,
+        -0.5023630261421204,
+        -0.5381256341934204
+      ],
+      "std": [
+        0.30485142269053556,
+        0.041182301683039525,
+        0.03368119664604612,
+        0.07019896501307757
+      ]
+    },
+    "episode_length": {
+      "max": 494,
+      "mean": 135.89562374245472,
+      "min": 40,
+      "p95": 225.25,
+      "std": 51.2342965190515
+    },
+    "episodes_by_seed": {
+      "42": 1333,
+      "43": 1320,
+      "44": 1323
+    },
+    "manifest": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/expert_dataset/manifest.json",
+    "manifest_sha256": "72847f6c9bb6f6c2c10d2f9862dd894ccd91c5ecb69bbbe948120a0ab8f64744",
+    "phase_counts": {
+      "align": 187752,
+      "approach": 79119,
+      "contact_settle": 22097,
+      "descent": 251353
+    },
+    "phase_fractions": {
+      "align": 0.3474823299483085,
+      "approach": 0.14642962239113416,
+      "contact_settle": 0.0408960599347425,
+      "descent": 0.4651919877258148
+    },
+    "split": {
+      "test": {
+        "episodes": 399,
+        "transitions": 51901
+      },
+      "train": {
+        "episodes": 3180,
+        "transitions": 434288
+      },
+      "validation": {
+        "episodes": 397,
+        "transitions": 54132
+      }
+    },
+    "successful_episodes": 3976,
+    "transitions": 540321
+  },
+  "failure_analysis": [
+    "BC reproduces the teacher well offline and exceeds the closed-loop 80% target, but residual covariate shift appears mainly as deck misses.",
+    "Online PPO updates repeatedly move the actor away from the strong BC solution; contact remains high while settled landing drops.",
+    "A cold critic and reward-based checkpoint selection do not reliably preserve the touchdown/settle objective.",
+    "Reducing the configured initial learning rate to 1e-5 did not fix the drift and increased seed variance."
+  ],
+  "formal_evaluation": {
+    "BC only": {
+      "aggregate": {
+        "contact_success_rate": {
+          "mean": 0.9973958333333334,
+          "std": 0.0018414239093399675
+        },
+        "deck_miss_rate": {
+          "mean": 0.1171875,
+          "std": 0.005524271728019903
+        },
+        "episodes": 768,
+        "episodes_per_seed": 256,
+        "failure_counts": {
+          "deck_miss": 90,
+          "ground_crash": 0,
+          "hard_contact": 2,
+          "timeout": 0
+        },
+        "first_contact_body_deck_normal_angle_mean_rad": {
+          "mean": 0.03816895564103403,
+          "std": 0.0026409912476590973
+        },
+        "first_contact_normal_relative_speed_mean_mps": {
+          "mean": -0.15714720266474116,
+          "std": 0.021288668409754553
+        },
+        "first_contact_tangential_relative_speed_mean_mps": {
+          "mean": 0.20507217838912892,
+          "std": 0.01008334883254191
+        },
+        "first_contact_xy_error_mean_m": {
+          "mean": 0.056100676568395465,
+          "std": 0.0022822082325407245
+        },
+        "ground_crash_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "hard_contact_rate": {
+          "mean": 0.0026041666666666665,
+          "std": 0.0018414239093399675
+        },
+        "maximum_penetration_mean_m": {
+          "mean": 0.01947787123087134,
+          "std": 0.0001400116372865687
+        },
+        "seeds": 3,
+        "settled_landing_rate": {
+          "mean": 0.8828125,
+          "std": 0.005524271728019903
+        },
+        "timeout_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "touchdown_distance_mean_m": {
+          "mean": 0.056069860289712475,
+          "std": 0.0028880982810622555
+        }
+      },
+      "per_seed": {
+        "42": {
+          "contact_success_rate": 0.99609375,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_only/seed42.csv",
+          "deck_miss_rate": 0.11328125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 29,
+            "ground_crash": 0,
+            "hard_contact": 0,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.03859429790239396,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.11940760761499401,
+          "first_contact_normal_relative_speed_mean_mps": -0.18564733791181465,
+          "first_contact_normal_relative_speed_p95_mps": -0.017889201547950623,
+          "first_contact_tangential_relative_speed_mean_mps": 0.21690322098523246,
+          "first_contact_tangential_relative_speed_p95_mps": 0.44068506658077233,
+          "first_contact_xy_error_mean_m": 0.059315942684783386,
+          "first_contact_xy_error_p95_m": 0.11106881499290465,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0,
+          "maximum_penetration_mean_m": 0.01958406455378281,
+          "maximum_penetration_p95_m": 0.020154592115432024,
+          "settled_episodes": 227,
+          "settled_landing_rate": 0.88671875,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.05954444457854797,
+          "touchdown_distance_p95_m": 0.10970886796712875
+        },
+        "43": {
+          "contact_success_rate": 0.99609375,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_only/seed43.csv",
+          "deck_miss_rate": 0.125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 32,
+            "ground_crash": 0,
+            "hard_contact": 1,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.03474278717476409,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.10183136463165282,
+          "first_contact_normal_relative_speed_mean_mps": -0.1344936939505195,
+          "first_contact_normal_relative_speed_p95_mps": 0.010855729458853597,
+          "first_contact_tangential_relative_speed_mean_mps": 0.1922624052219492,
+          "first_contact_tangential_relative_speed_p95_mps": 0.41667397171258924,
+          "first_contact_xy_error_mean_m": 0.05473647620237898,
+          "first_contact_xy_error_p95_m": 0.1066688060760498,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.00390625,
+          "maximum_penetration_mean_m": 0.019280043365142774,
+          "maximum_penetration_p95_m": 0.020148583222180605,
+          "settled_episodes": 224,
+          "settled_landing_rate": 0.875,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.05619190015879992,
+          "touchdown_distance_p95_m": 0.10685369372367859
+        },
+        "44": {
+          "contact_success_rate": 1,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_only/seed44.csv",
+          "deck_miss_rate": 0.11328125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 29,
+            "ground_crash": 0,
+            "hard_contact": 1,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.04116978184594403,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.11524451598525044,
+          "first_contact_normal_relative_speed_mean_mps": -0.15130057613188935,
+          "first_contact_normal_relative_speed_p95_mps": -0.011116068344563248,
+          "first_contact_tangential_relative_speed_mean_mps": 0.2060509089602051,
+          "first_contact_tangential_relative_speed_p95_mps": 0.4221727907657623,
+          "first_contact_xy_error_mean_m": 0.05424961081802402,
+          "first_contact_xy_error_p95_m": 0.10894354805350301,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.00390625,
+          "maximum_penetration_mean_m": 0.019569505773688434,
+          "maximum_penetration_p95_m": 0.020126840099692345,
+          "settled_episodes": 227,
+          "settled_landing_rate": 0.88671875,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.05247323613178953,
+          "touchdown_distance_p95_m": 0.10235809460282325
+        }
+      }
+    },
+    "BC+PPO": {
+      "aggregate": {
+        "contact_success_rate": {
+          "mean": 0.9505208333333334,
+          "std": 0.022627795829404645
+        },
+        "deck_miss_rate": {
+          "mean": 0.23046875,
+          "std": 0.08981543938010696
+        },
+        "episodes": 768,
+        "episodes_per_seed": 256,
+        "failure_counts": {
+          "deck_miss": 177,
+          "ground_crash": 0,
+          "hard_contact": 7,
+          "timeout": 0
+        },
+        "first_contact_body_deck_normal_angle_mean_rad": {
+          "mean": 0.03462191610055222,
+          "std": 0.005311138922145356
+        },
+        "first_contact_normal_relative_speed_mean_mps": {
+          "mean": -0.18331970431149908,
+          "std": 0.03753466482803127
+        },
+        "first_contact_tangential_relative_speed_mean_mps": {
+          "mean": 0.1442572436503703,
+          "std": 0.022646211121150093
+        },
+        "first_contact_xy_error_mean_m": {
+          "mean": 0.06495946054892003,
+          "std": 0.00560833513929129
+        },
+        "ground_crash_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "hard_contact_rate": {
+          "mean": 0.009114583333333334,
+          "std": 0.006639348324990605
+        },
+        "maximum_penetration_mean_m": {
+          "mean": 0.019667877240863163,
+          "std": 0.0003753994887936553
+        },
+        "seeds": 3,
+        "settled_landing_rate": {
+          "mean": 0.7669270833333334,
+          "std": 0.0916281879466624
+        },
+        "timeout_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "touchdown_distance_mean_m": {
+          "mean": 0.06828435476323766,
+          "std": 0.005848271210460827
+        }
+      },
+      "per_seed": {
+        "42": {
+          "contact_success_rate": 0.98046875,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo/seed42.csv",
+          "deck_miss_rate": 0.3125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 80,
+            "ground_crash": 0,
+            "hard_contact": 4,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.0421292473282665,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.12728334665298457,
+          "first_contact_normal_relative_speed_mean_mps": -0.23635059485345014,
+          "first_contact_normal_relative_speed_p95_mps": 0.07606206014752387,
+          "first_contact_tangential_relative_speed_mean_mps": 0.17624106251767704,
+          "first_contact_tangential_relative_speed_p95_mps": 0.32193823456764215,
+          "first_contact_xy_error_mean_m": 0.0718028341074075,
+          "first_contact_xy_error_p95_m": 0.11186565235257148,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.015625,
+          "maximum_penetration_mean_m": 0.019554146310838405,
+          "maximum_penetration_p95_m": 0.020252368412911892,
+          "settled_episodes": 175,
+          "settled_landing_rate": 0.68359375,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.07653192275602903,
+          "touchdown_distance_p95_m": 0.11547810062766074
+        },
+        "43": {
+          "contact_success_rate": 0.9453125,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo/seed43.csv",
+          "deck_miss_rate": 0.10546875,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 27,
+            "ground_crash": 0,
+            "hard_contact": 0,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.030662633479785328,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.10136170536279678,
+          "first_contact_normal_relative_speed_mean_mps": -0.15882170343248977,
+          "first_contact_normal_relative_speed_p95_mps": -0.012873912416398535,
+          "first_contact_tangential_relative_speed_mean_mps": 0.12969809910079147,
+          "first_contact_tangential_relative_speed_p95_mps": 0.23723517954349516,
+          "first_contact_xy_error_mean_m": 0.0580655535424787,
+          "first_contact_xy_error_p95_m": 0.09880358576774598,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0,
+          "maximum_penetration_mean_m": 0.020173837485344848,
+          "maximum_penetration_p95_m": 0.020174012053757906,
+          "settled_episodes": 229,
+          "settled_landing_rate": 0.89453125,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.06362519157424114,
+          "touchdown_distance_p95_m": 0.10681309401988984
+        },
+        "44": {
+          "contact_success_rate": 0.92578125,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo/seed44.csv",
+          "deck_miss_rate": 0.2734375,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 70,
+            "ground_crash": 0,
+            "hard_contact": 3,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.03107386749360484,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.10317433476448054,
+          "first_contact_normal_relative_speed_mean_mps": -0.15478681464855734,
+          "first_contact_normal_relative_speed_p95_mps": -0.013391519337892635,
+          "first_contact_tangential_relative_speed_mean_mps": 0.12683256933264234,
+          "first_contact_tangential_relative_speed_p95_mps": 0.25659159421920774,
+          "first_contact_xy_error_mean_m": 0.0650099939968739,
+          "first_contact_xy_error_p95_m": 0.10646536946296689,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.01171875,
+          "maximum_penetration_mean_m": 0.019275647926406236,
+          "maximum_penetration_p95_m": 0.020161110442131758,
+          "settled_episodes": 185,
+          "settled_landing_rate": 0.72265625,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.06469594995944282,
+          "touchdown_distance_p95_m": 0.10940097272396086
+        }
+      }
+    },
+    "BC+PPO lr1e-5 diagnostic": {
+      "aggregate": {
+        "contact_success_rate": {
+          "mean": 0.921875,
+          "std": 0.05560978256266308
+        },
+        "deck_miss_rate": {
+          "mean": 0.30859375,
+          "std": 0.12356763973039894
+        },
+        "episodes": 768,
+        "episodes_per_seed": 256,
+        "failure_counts": {
+          "deck_miss": 237,
+          "ground_crash": 0,
+          "hard_contact": 8,
+          "timeout": 38
+        },
+        "first_contact_body_deck_normal_angle_mean_rad": {
+          "mean": 0.05331383384182648,
+          "std": 0.025109332783227307
+        },
+        "first_contact_normal_relative_speed_mean_mps": {
+          "mean": -0.28079270249737226,
+          "std": 0.1029594148326273
+        },
+        "first_contact_tangential_relative_speed_mean_mps": {
+          "mean": 0.28650865193943276,
+          "std": 0.12153014722990432
+        },
+        "first_contact_xy_error_mean_m": {
+          "mean": 0.07150830425810425,
+          "std": 0.009850909461157282
+        },
+        "ground_crash_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "hard_contact_rate": {
+          "mean": 0.010416666666666666,
+          "std": 0.008026580733032522
+        },
+        "maximum_penetration_mean_m": {
+          "mean": 0.01808418564663346,
+          "std": 0.0021231446441060497
+        },
+        "seeds": 3,
+        "settled_landing_rate": {
+          "mean": 0.63671875,
+          "std": 0.18022451456736308
+        },
+        "timeout_rate": {
+          "mean": 0.049479166666666664,
+          "std": 0.05185496810348926
+        },
+        "touchdown_distance_mean_m": {
+          "mean": 0.07015109420253704,
+          "std": 0.006496888912355673
+        }
+      },
+      "per_seed": {
+        "42": {
+          "contact_success_rate": 0.875,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo_lr1e-5_diagnostic/seed42.csv",
+          "deck_miss_rate": 0.48046875,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 123,
+            "ground_crash": 0,
+            "hard_contact": 3,
+            "timeout": 31
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.08840654878359702,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.1926365554332733,
+          "first_contact_normal_relative_speed_mean_mps": -0.42159672347932226,
+          "first_contact_normal_relative_speed_p95_mps": 0.016265618614852356,
+          "first_contact_tangential_relative_speed_mean_mps": 0.4445758108990361,
+          "first_contact_tangential_relative_speed_p95_mps": 0.6746078372001648,
+          "first_contact_xy_error_mean_m": 0.08506998715150837,
+          "first_contact_xy_error_p95_m": 0.11519042253494262,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.01171875,
+          "maximum_penetration_mean_m": 0.015081638743140502,
+          "maximum_penetration_p95_m": 0.020216279197484255,
+          "settled_episodes": 99,
+          "settled_landing_rate": 0.38671875,
+          "timeout_rate": 0.12109375,
+          "touchdown_distance_mean_m": 0.07693922069544594,
+          "touchdown_distance_p95_m": 0.11479769200086593
+        },
+        "43": {
+          "contact_success_rate": 1,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo_lr1e-5_diagnostic/seed43.csv",
+          "deck_miss_rate": 0.1953125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 50,
+            "ground_crash": 0,
+            "hard_contact": 0,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.03106706067230281,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.10447844490408897,
+          "first_contact_normal_relative_speed_mean_mps": -0.1782716569881796,
+          "first_contact_normal_relative_speed_p95_mps": 0.007134160434361547,
+          "first_contact_tangential_relative_speed_mean_mps": 0.14903326403096462,
+          "first_contact_tangential_relative_speed_p95_mps": 0.29618075489997864,
+          "first_contact_xy_error_mean_m": 0.0674881137567301,
+          "first_contact_xy_error_p95_m": 0.11219832487404346,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0,
+          "maximum_penetration_mean_m": 0.019597659054852556,
+          "maximum_penetration_p95_m": 0.020204794127494097,
+          "settled_episodes": 206,
+          "settled_landing_rate": 0.8046875,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.07211943268911569,
+          "touchdown_distance_p95_m": 0.11514928750693798
+        },
+        "44": {
+          "contact_success_rate": 0.890625,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/bc_plus_ppo_lr1e-5_diagnostic/seed44.csv",
+          "deck_miss_rate": 0.25,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 64,
+            "ground_crash": 0,
+            "hard_contact": 5,
+            "timeout": 7
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.04046789206957961,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.12165955454111094,
+          "first_contact_normal_relative_speed_mean_mps": -0.24250972702461498,
+          "first_contact_normal_relative_speed_p95_mps": -0.036465553194284454,
+          "first_contact_tangential_relative_speed_mean_mps": 0.2659168808882975,
+          "first_contact_tangential_relative_speed_p95_mps": 0.5165375024080275,
+          "first_contact_xy_error_mean_m": 0.06196681186607431,
+          "first_contact_xy_error_p95_m": 0.10950324088335035,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.01953125,
+          "maximum_penetration_mean_m": 0.01957325914190733,
+          "maximum_penetration_p95_m": 0.02295833360403776,
+          "settled_episodes": 184,
+          "settled_landing_rate": 0.71875,
+          "timeout_rate": 0.02734375,
+          "touchdown_distance_mean_m": 0.061394629223049495,
+          "touchdown_distance_p95_m": 0.10778417438268661
+        }
+      }
+    },
+    "PPO scratch": {
+      "aggregate": {
+        "contact_success_rate": {
+          "mean": 0.10546875,
+          "std": 0.040720041070603875
+        },
+        "deck_miss_rate": {
+          "mean": 0.21614583333333334,
+          "std": 0.2233822532709098
+        },
+        "episodes": 768,
+        "episodes_per_seed": 256,
+        "failure_counts": {
+          "deck_miss": 166,
+          "ground_crash": 0,
+          "hard_contact": 44,
+          "other": 5,
+          "timeout": 565
+        },
+        "first_contact_body_deck_normal_angle_mean_rad": {
+          "mean": 0.16193884424865246,
+          "std": 0.004929034039378166
+        },
+        "first_contact_normal_relative_speed_mean_mps": {
+          "mean": -0.07996554734806219,
+          "std": 0.1755753600349029
+        },
+        "first_contact_tangential_relative_speed_mean_mps": {
+          "mean": 0.6688005750377972,
+          "std": 0.03504019727309543
+        },
+        "first_contact_xy_error_mean_m": {
+          "mean": 0.09665240782002607,
+          "std": 0.008439897870024048
+        },
+        "ground_crash_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "hard_contact_rate": {
+          "mean": 0.057291666666666664,
+          "std": 0.02749832302336312
+        },
+        "maximum_penetration_mean_m": {
+          "mean": 0.002941347898740787,
+          "std": 0.0026934716673557755
+        },
+        "seeds": 3,
+        "settled_landing_rate": {
+          "mean": 0.009114583333333334,
+          "std": 0.006639348324990605
+        },
+        "timeout_rate": {
+          "mean": 0.7356770833333334,
+          "std": 0.20581979807470877
+        },
+        "touchdown_distance_mean_m": {
+          "mean": 0.09789988491684198,
+          "std": 0.008610458113253117
+        }
+      },
+      "per_seed": {
+        "42": {
+          "contact_success_rate": 0.0625,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_scratch/seed42.csv",
+          "deck_miss_rate": 0.0390625,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 10,
+            "ground_crash": 0,
+            "hard_contact": 7,
+            "other": 5,
+            "timeout": 230
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.16686787828803062,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.1828097105026245,
+          "first_contact_normal_relative_speed_mean_mps": -0.2555409073829651,
+          "first_contact_normal_relative_speed_p95_mps": 0.0923641487956047,
+          "first_contact_tangential_relative_speed_mean_mps": 0.6337603777647018,
+          "first_contact_tangential_relative_speed_p95_mps": 0.727079826593399,
+          "first_contact_xy_error_mean_m": 0.10509230569005013,
+          "first_contact_xy_error_p95_m": 0.11460832133889198,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.02734375,
+          "maximum_penetration_mean_m": 0.0007698774679738563,
+          "maximum_penetration_p95_m": 0.0,
+          "settled_episodes": 4,
+          "settled_landing_rate": 0.015625,
+          "timeout_rate": 0.8984375,
+          "touchdown_distance_mean_m": 0.1065103430300951,
+          "touchdown_distance_p95_m": 0.11693369299173355
+        },
+        "43": {
+          "contact_success_rate": 0.09375,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_scratch/seed43.csv",
+          "deck_miss_rate": 0.078125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 20,
+            "ground_crash": 0,
+            "hard_contact": 13,
+            "timeout": 221
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.1570098102092743,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.30456623062491417,
+          "first_contact_normal_relative_speed_mean_mps": 0.0956098126868407,
+          "first_contact_normal_relative_speed_p95_mps": 0.3190812617540359,
+          "first_contact_tangential_relative_speed_mean_mps": 0.7038407723108927,
+          "first_contact_tangential_relative_speed_p95_mps": 0.9092534363269806,
+          "first_contact_xy_error_mean_m": 0.08821250995000203,
+          "first_contact_xy_error_p95_m": 0.10741747319698333,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.05078125,
+          "maximum_penetration_mean_m": 0.0013167839497327805,
+          "maximum_penetration_p95_m": 0.016475980635732412,
+          "settled_episodes": 3,
+          "settled_landing_rate": 0.01171875,
+          "timeout_rate": 0.86328125,
+          "touchdown_distance_mean_m": 0.08928942680358887,
+          "touchdown_distance_p95_m": 0.10289810597896576
+        },
+        "44": {
+          "contact_success_rate": 0.16015625,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_scratch/seed44.csv",
+          "deck_miss_rate": 0.53125,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 136,
+            "ground_crash": 0,
+            "hard_contact": 24,
+            "timeout": 114
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": null,
+          "first_contact_body_deck_normal_angle_p95_rad": null,
+          "first_contact_normal_relative_speed_mean_mps": null,
+          "first_contact_normal_relative_speed_p95_mps": null,
+          "first_contact_tangential_relative_speed_mean_mps": null,
+          "first_contact_tangential_relative_speed_p95_mps": null,
+          "first_contact_xy_error_mean_m": null,
+          "first_contact_xy_error_p95_m": null,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.09375,
+          "maximum_penetration_mean_m": 0.0067373822785157245,
+          "maximum_penetration_p95_m": 0.031798359006643295,
+          "settled_episodes": 0,
+          "settled_landing_rate": 0,
+          "timeout_rate": 0.4453125,
+          "touchdown_distance_mean_m": null,
+          "touchdown_distance_p95_m": null
+        }
+      }
+    },
+    "PPO teacher": {
+      "aggregate": {
+        "contact_success_rate": {
+          "mean": 0.9986979166666666,
+          "std": 0.0018414239093399675
+        },
+        "deck_miss_rate": {
+          "mean": 0.053385416666666664,
+          "std": 0.0048719497223619025
+        },
+        "episodes": 768,
+        "episodes_per_seed": 256,
+        "failure_counts": {
+          "deck_miss": 41,
+          "ground_crash": 0,
+          "hard_contact": 1,
+          "timeout": 0
+        },
+        "first_contact_body_deck_normal_angle_mean_rad": {
+          "mean": 0.0359276025727114,
+          "std": 0.0034033976828995133
+        },
+        "first_contact_normal_relative_speed_mean_mps": {
+          "mean": -0.15593082323055354,
+          "std": 0.0015882089712249822
+        },
+        "first_contact_tangential_relative_speed_mean_mps": {
+          "mean": 0.20028625786567988,
+          "std": 0.0028777979282576293
+        },
+        "first_contact_xy_error_mean_m": {
+          "mean": 0.05589478031180858,
+          "std": 0.0009882555227686
+        },
+        "ground_crash_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "hard_contact_rate": {
+          "mean": 0.0013020833333333333,
+          "std": 0.0018414239093399675
+        },
+        "maximum_penetration_mean_m": {
+          "mean": 0.01977695379779713,
+          "std": 3.270168613922544e-05
+        },
+        "seeds": 3,
+        "settled_landing_rate": {
+          "mean": 0.9466145833333334,
+          "std": 0.0048719497223619025
+        },
+        "timeout_rate": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "touchdown_distance_mean_m": {
+          "mean": 0.057570115931646765,
+          "std": 0.0018091587800826041
+        }
+      },
+      "per_seed": {
+        "42": {
+          "contact_success_rate": 1,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_teacher/seed42.csv",
+          "deck_miss_rate": 0.05859375,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 15,
+            "ground_crash": 0,
+            "hard_contact": 1,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.031117280049122006,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.10873645544052124,
+          "first_contact_normal_relative_speed_mean_mps": -0.15742475117645632,
+          "first_contact_normal_relative_speed_p95_mps": -0.014465824700891972,
+          "first_contact_tangential_relative_speed_mean_mps": 0.19629715070518747,
+          "first_contact_tangential_relative_speed_p95_mps": 0.38980239629745483,
+          "first_contact_xy_error_mean_m": 0.056199006332447794,
+          "first_contact_xy_error_p95_m": 0.1019030511379242,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0.00390625,
+          "maximum_penetration_mean_m": 0.01979210441641044,
+          "maximum_penetration_p95_m": 0.020171015057712793,
+          "settled_episodes": 241,
+          "settled_landing_rate": 0.94140625,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.0582456186943189,
+          "touchdown_distance_p95_m": 0.10837862640619278
+        },
+        "43": {
+          "contact_success_rate": 0.99609375,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_teacher/seed43.csv",
+          "deck_miss_rate": 0.046875,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 12,
+            "ground_crash": 0,
+            "hard_contact": 0,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.03819038547858401,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.11198442243039608,
+          "first_contact_normal_relative_speed_mean_mps": -0.1537313627606159,
+          "first_contact_normal_relative_speed_p95_mps": -0.013762726401910196,
+          "first_contact_tangential_relative_speed_mean_mps": 0.20297927362844348,
+          "first_contact_tangential_relative_speed_p95_mps": 0.4368005201220512,
+          "first_contact_xy_error_mean_m": 0.05456132976983323,
+          "first_contact_xy_error_p95_m": 0.10273438096046447,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0,
+          "maximum_penetration_mean_m": 0.01973153744620504,
+          "maximum_penetration_p95_m": 0.020147967152297497,
+          "settled_episodes": 244,
+          "settled_landing_rate": 0.953125,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.055095227387997124,
+          "touchdown_distance_p95_m": 0.1059519961476326
+        },
+        "44": {
+          "contact_success_rate": 1,
+          "csv": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/benchmarks/imitation_hybrid/formal_evaluations/ppo_teacher/seed44.csv",
+          "deck_miss_rate": 0.0546875,
+          "episodes": 256,
+          "failure_counts": {
+            "deck_miss": 14,
+            "ground_crash": 0,
+            "hard_contact": 0,
+            "timeout": 0
+          },
+          "first_contact_body_deck_normal_angle_mean_rad": 0.038475142190428184,
+          "first_contact_body_deck_normal_angle_p95_rad": 0.11348746009171008,
+          "first_contact_normal_relative_speed_mean_mps": -0.1566363557545884,
+          "first_contact_normal_relative_speed_p95_mps": 0.00211907390039414,
+          "first_contact_tangential_relative_speed_mean_mps": 0.2015823492634087,
+          "first_contact_tangential_relative_speed_p95_mps": 0.41486297845840453,
+          "first_contact_xy_error_mean_m": 0.05692400483314471,
+          "first_contact_xy_error_p95_m": 0.10222809910774229,
+          "ground_crash_rate": 0,
+          "hard_contact_rate": 0,
+          "maximum_penetration_mean_m": 0.01980721953077591,
+          "maximum_penetration_p95_m": 0.020169767551124096,
+          "settled_episodes": 242,
+          "settled_landing_rate": 0.9453125,
+          "timeout_rate": 0,
+          "touchdown_distance_mean_m": 0.05936950171262426,
+          "touchdown_distance_p95_m": 0.10468194670975206
+        }
+      }
+    }
+  },
+  "known_limitations": [
+    "The policy is state based and does not use camera images or real visual projection features.",
+    "The teacher dataset contains successful episodes only, so recovery behavior after off-distribution mistakes is underrepresented.",
+    "The online budget is 1,228,800 environment steps per seed; PPO from scratch did not converge within this budget.",
+    "The current motion distribution is xy translation, sinusoidal heave, and roll/pitch up to 5 degrees; it does not cover yaw, wave spectra, hydrodynamics, or full vessel six-DoF motion.",
+    "No interactive display was available and the current rollout recorder is numeric-only, so GUI acceptance and video artifacts are not claimed; headless offscreen video would require a separate render-enabled recorder."
+  ],
+  "learning_curves": {
+    "BC+PPO": [
+      {
+        "contact_success_rate": null,
+        "environment_steps": 0,
+        "epoch": 0,
+        "evaluation_episodes": 768,
+        "hard_contact_rate": null,
+        "settled_landing_rate": 0.8828125,
+        "source": "BC initialization before online PPO updates",
+        "touchdown_distance_mean_m": null
+      },
+      {
+        "contact_success_rate": 0.9140625,
+        "environment_steps": 122880,
+        "epoch": 20,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.010416666666666666,
+        "settled_landing_rate": 0.7057291666666666,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.06795187973980212
+      },
+      {
+        "contact_success_rate": 0.9166666666666666,
+        "environment_steps": 307200,
+        "epoch": 50,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.0234375,
+        "settled_landing_rate": 0.7682291666666666,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.06668953061712254
+      },
+      {
+        "contact_success_rate": 0.9505208333333334,
+        "environment_steps": 614400,
+        "epoch": 100,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.015625,
+        "settled_landing_rate": 0.6536458333333334,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.06550587651603129
+      },
+      {
+        "contact_success_rate": 0.9895833333333334,
+        "environment_steps": 921600,
+        "epoch": 150,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.005208333333333333,
+        "settled_landing_rate": 0.6692708333333334,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.07185658269799959
+      },
+      {
+        "contact_success_rate": 0.984375,
+        "environment_steps": 1228800,
+        "epoch": 200,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.0,
+        "settled_landing_rate": 0.7239583333333334,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.06781162290586269
+      }
+    ],
+    "PPO scratch": [
+      {
+        "contact_success_rate": 0.125,
+        "environment_steps": 122880,
+        "epoch": 20,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.03125,
+        "settled_landing_rate": 0.015625,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.09508489891886711
+      },
+      {
+        "contact_success_rate": 0.1875,
+        "environment_steps": 307200,
+        "epoch": 50,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.13541666666666666,
+        "settled_landing_rate": 0.013020833333333334,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.064301647990942
+      },
+      {
+        "contact_success_rate": 0.026041666666666668,
+        "environment_steps": 614400,
+        "epoch": 100,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.018229166666666668,
+        "settled_landing_rate": 0.0026041666666666665,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.11570043861865997
+      },
+      {
+        "contact_success_rate": 0.059895833333333336,
+        "environment_steps": 921600,
+        "epoch": 150,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.041666666666666664,
+        "settled_landing_rate": 0.0026041666666666665,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.09034889191389084
+      },
+      {
+        "contact_success_rate": 0.3619791666666667,
+        "environment_steps": 1228800,
+        "epoch": 200,
+        "evaluation_episodes": 384,
+        "hard_contact_rate": 0.18489583333333334,
+        "settled_landing_rate": 0.06770833333333333,
+        "source": "fixed checkpoint interval, 128 episodes per seed",
+        "touchdown_distance_mean_m": 0.08616911621764303
+      }
+    ]
+  },
+  "primary_comparison_methods": [
+    "PPO teacher",
+    "PPO scratch",
+    "BC only",
+    "BC+PPO"
+  ],
+  "rollout_cases": {
+    "bc_ppo_success": {
+      "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/bc_ppo/seed43/nn/bc_ppo.pth",
+      "checkpoint_sha256": "02e3126b6cdba1340a1dbd0945b0762bb4b9921f7b00fb1a139f6e433507391d",
+      "committed_metadata": "rollout_cases/bc_ppo_success.npz.json",
+      "committed_trajectory": "rollout_cases/bc_ppo_success.npz",
+      "created_at_utc": "2026-08-03T17:07:16.551922+00:00",
+      "outcome": "settled_landing",
+      "parallel_envs": 64,
+      "phase_names": {
+        "0": "approach",
+        "1": "align",
+        "2": "descent",
+        "3": "contact_settle"
+      },
+      "seed": 43,
+      "selected_env_id": 37,
+      "steps": 47,
+      "target": "success",
+      "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+      "terminal": {
+        "deck_contact": true,
+        "deck_miss": false,
+        "deck_position_w": [
+          -1.073656439781189,
+          3.593796730041504,
+          0.38666874170303345
+        ],
+        "first_contact_body_deck_normal_angle_rad": 0.0009134905994869769,
+        "first_contact_normal_relative_speed_mps": -0.01747438870370388,
+        "first_contact_tangential_relative_speed_mps": 0.14713609218597412,
+        "first_contact_xy_error_m": 0.04915544390678406,
+        "ground_crash": false,
+        "hard_contact": false,
+        "maximum_penetration_m": 0.02001592144370079,
+        "robot_position_w": [
+          -1.1012887954711914,
+          3.54638409614563,
+          0.42104288935661316
+        ],
+        "settled_landing": true,
+        "time_out": false,
+        "touchdown_distance_m": 0.05447978526353836
+      },
+      "trajectory": "bc_ppo_success.npz",
+      "trajectory_sha256": "4524e450d416fa4fbea60b42f655165b9d27c1dc9bba2e7d345abea8acfb09bf",
+      "video_generated": false,
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
+    },
+    "bc_success": {
+      "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/imitation/behavior_cloning/bc_init_rlgames.pth",
+      "checkpoint_sha256": "0669022b8b88af22a3ef3a3baebdd1d3c32c26ff0095ef9e2a2498b3e3aa7517",
+      "committed_metadata": "rollout_cases/bc_success.npz.json",
+      "committed_trajectory": "rollout_cases/bc_success.npz",
+      "created_at_utc": "2026-08-03T17:07:05.779235+00:00",
+      "outcome": "settled_landing",
+      "parallel_envs": 64,
+      "phase_names": {
+        "0": "approach",
+        "1": "align",
+        "2": "descent",
+        "3": "contact_settle"
+      },
+      "seed": 42,
+      "selected_env_id": 53,
+      "steps": 48,
+      "target": "success",
+      "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+      "terminal": {
+        "deck_contact": true,
+        "deck_miss": false,
+        "deck_position_w": [
+          -6.502854347229004,
+          3.411867141723633,
+          0.36863434314727783
+        ],
+        "first_contact_body_deck_normal_angle_rad": 0.09783371537923813,
+        "first_contact_normal_relative_speed_mps": -0.6561649441719055,
+        "first_contact_tangential_relative_speed_mps": 0.6704022884368896,
+        "first_contact_xy_error_m": 0.09696300327777863,
+        "ground_crash": false,
+        "hard_contact": false,
+        "maximum_penetration_m": 0.020019691437482834,
+        "robot_position_w": [
+          -6.501524448394775,
+          3.5055437088012695,
+          0.4037821292877197
+        ],
+        "settled_landing": true,
+        "time_out": false,
+        "touchdown_distance_m": 0.09375558793544769
+      },
+      "trajectory": "bc_success.npz",
+      "trajectory_sha256": "a1e27dc999c3e9298edf4efc1f3a30a60e576751a6bcdaca0703d8e545861c7e",
+      "video_generated": false,
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
+    },
+    "scratch_timeout_failure": {
+      "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/ppo_scratch/seed42/nn/ppo_scratch.pth",
+      "checkpoint_sha256": "3e1f3e44a4f9ce35e3c8a9544da828e743de3115a86558b1032d2979947bb789",
+      "committed_metadata": "rollout_cases/scratch_timeout_failure.npz.json",
+      "committed_trajectory": "rollout_cases/scratch_timeout_failure.npz",
+      "created_at_utc": "2026-08-03T17:07:36.090015+00:00",
+      "outcome": "timeout",
+      "parallel_envs": 64,
+      "phase_names": {
+        "0": "approach",
+        "1": "align",
+        "2": "descent",
+        "3": "contact_settle"
+      },
+      "seed": 42,
+      "selected_env_id": 0,
+      "steps": 499,
+      "target": "failure",
+      "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+      "terminal": {
+        "deck_contact": false,
+        "deck_miss": false,
+        "deck_position_w": [
+          10.538583755493164,
+          -10.267656326293945,
+          0.3421373963356018
+        ],
+        "first_contact_body_deck_normal_angle_rad": 0.0,
+        "first_contact_normal_relative_speed_mps": 0.0,
+        "first_contact_tangential_relative_speed_mps": 0.0,
+        "first_contact_xy_error_m": 0.0,
+        "ground_crash": false,
+        "hard_contact": false,
+        "maximum_penetration_m": 0.0,
+        "robot_position_w": [
+          10.553433418273926,
+          -10.273903846740723,
+          0.7155234217643738
+        ],
+        "settled_landing": false,
+        "time_out": true,
+        "touchdown_distance_m": 0.0
+      },
+      "trajectory": "scratch_timeout_failure.npz",
+      "trajectory_sha256": "f0ba40f4822ea440c34af67a3ce47cc48dc883aea09ab2a45961dbe61b37a9ee",
+      "video_generated": false,
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
+    },
+    "teacher_success": {
+      "checkpoint": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth",
+      "checkpoint_sha256": "95424bb0d6b98d8dfbf2455d6fd84e99a77d52bca28489654036a25aea5a697d",
+      "committed_metadata": "rollout_cases/teacher_success.npz.json",
+      "committed_trajectory": "rollout_cases/teacher_success.npz",
+      "created_at_utc": "2026-08-03T17:06:34.526927+00:00",
+      "outcome": "settled_landing",
+      "parallel_envs": 64,
+      "phase_names": {
+        "0": "approach",
+        "1": "align",
+        "2": "descent",
+        "3": "contact_settle"
+      },
+      "seed": 42,
+      "selected_env_id": 26,
+      "steps": 50,
+      "target": "success",
+      "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+      "terminal": {
+        "deck_contact": true,
+        "deck_miss": false,
+        "deck_position_w": [
+          0.743339478969574,
+          -4.2066216468811035,
+          0.20715558528900146
+        ],
+        "first_contact_body_deck_normal_angle_rad": 0.0037025781348347664,
+        "first_contact_normal_relative_speed_mps": -0.11026125401258469,
+        "first_contact_tangential_relative_speed_mps": 0.1483559012413025,
+        "first_contact_xy_error_m": 0.0941108837723732,
+        "ground_crash": false,
+        "hard_contact": false,
+        "maximum_penetration_m": 0.01999843306839466,
+        "robot_position_w": [
+          0.7850565910339355,
+          -4.114281177520752,
+          0.2433200478553772
+        ],
+        "settled_landing": true,
+        "time_out": false,
+        "touchdown_distance_m": 0.10172093659639359
+      },
+      "trajectory": "teacher_success.npz",
+      "trajectory_sha256": "28c8c5b981294640a7973db145034d8d6a63169824e17241e692bc2a3565247b",
+      "video_generated": false,
+      "video_note": "No interactive display was available. This script records an objective state/action trajectory only; headless offscreen video would require a separate render-enabled recorder."
+    }
+  },
+  "state_based_policy": true,
+  "task_id": "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0",
+  "threshold_crossing_environment_steps": {
+    "BC only": {
+      "80%": 0,
+      "90%": null,
+      "92%": null
+    },
+    "BC+PPO": {
+      "80%": 0,
+      "90%": null,
+      "92%": null
+    },
+    "PPO scratch": {
+      "80%": null,
+      "90%": null,
+      "92%": null
+    },
+    "PPO teacher/reference": {
+      "80%": 0,
+      "90%": 0,
+      "92%": 0
+    }
+  },
+  "visual_input": false,
+  "working_tree_dirty_before_generation": false
+}

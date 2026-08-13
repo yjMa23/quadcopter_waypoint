@@ -89,7 +89,7 @@ def build_bc_initialized_rlgames_checkpoint(
     checkpoint["last_mean_rewards"] = torch.zeros((), dtype=torch.float32)
     checkpoint["env_state"] = None
     checkpoint.pop("observation_expansion", None)
-    checkpoint["p7_bc_initialization"] = {
+    checkpoint["bc_initialization"] = {
         "source_bc_checkpoint": str(bc_path),
         "source_bc_checkpoint_sha256": sha256_file(bc_path),
         "source_template_checkpoint": str(template_path),

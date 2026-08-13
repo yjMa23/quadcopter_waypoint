@@ -1,4 +1,4 @@
-"""Train and evaluate the P7 behavior-cloning actor on whole-episode dataset splits."""
+"""Train and evaluate the imitation-learning benchmark behavior-cloning actor on whole-episode dataset splits."""
 
 from __future__ import annotations
 
@@ -114,7 +114,7 @@ def _checkpoint_payload(
     training_config: dict[str, Any],
 ) -> dict[str, Any]:
     return {
-        "format": "quadcopter_waypoint_p7_bc_v1",
+        "format": "quadcopter_waypoint_bc_v1",
         "model_state_dict": actor.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "epoch": int(epoch),

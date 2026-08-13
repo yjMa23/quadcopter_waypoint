@@ -1,7 +1,7 @@
 # Copyright (c) 2026
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Collect successful deterministic P6C teacher episodes into resumable compressed shards."""
+"""Collect successful deterministic physical-deck-attitude task teacher episodes into resumable compressed shards."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from isaaclab.app import AppLauncher
 
 ORIGINAL_ARGV = sys.argv.copy()
 
-parser = argparse.ArgumentParser(description="Collect P7 expert trajectories from the frozen P6C teacher.")
+parser = argparse.ArgumentParser(description="Collect imitation-learning benchmark expert trajectories from the frozen physical-deck-attitude task teacher.")
 parser.add_argument("--task", type=str, required=True)
 parser.add_argument("--checkpoint", type=str, required=True)
 parser.add_argument("--output_dir", type=str, required=True)

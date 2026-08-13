@@ -1,4 +1,4 @@
-"""Finalize per-seed P7 collection shards into one episode-level-split dataset manifest."""
+"""Finalize per-seed imitation-learning benchmark collection shards into one episode-level-split dataset manifest."""
 
 from __future__ import annotations
 
