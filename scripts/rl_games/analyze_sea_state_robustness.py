@@ -30,6 +30,12 @@ DOMINANT_METRIC = {
     "compatibility": "deck_tilt_max_deg",
 }
 
+MIN_BOUNDARY_EVAL_SEEDS = 2
+MAX_BOUNDARY_SCALING_FRACTION = 0.20
+MIN_BOUNDARY_SCALE_P05 = 0.90
+BOUNDARY_SUCCESS_RATE = 0.95
+WILSON_Z_95 = 1.959963984540054
+
 
 def bool_value(row: dict[str, str], key: str) -> bool:
     return row.get(key, "False").strip().lower() == "true"
@@ -73,6 +79,16 @@ def percentile(values: list[float], q: float) -> float:
         return values[lower]
     weight = position - lower
     return values[lower] * (1.0 - weight) + values[upper] * weight
+
+
+def wilson_upper(successes: int, trials: int, z: float = WILSON_Z_95) -> float:
+    if trials <= 0:
+        return math.nan
+    p = successes / trials
+    denominator = 1.0 + z * z / trials
+    center = (p + z * z / (2.0 * trials)) / denominator
+    margin = z * math.sqrt(p * (1.0 - p) / trials + z * z / (4.0 * trials * trials)) / denominator
+    return min(1.0, center + margin)
 
 
 def bucket_label(value: float, edges: list[float]) -> tuple[int, str]:
@@ -141,6 +157,16 @@ def summarize_profiles(rows: list[dict[str, str]], profiles: dict | None) -> lis
     for (policy, profile_name), subset in sorted(groups.items()):
         count = len(subset)
         profile = profiles.get(profile_name, {}) if profiles else {}
+        seed_groups: dict[str, list[dict[str, str]]] = defaultdict(list)
+        for row in subset:
+            if row["eval_seed"]:
+                seed_groups[row["eval_seed"]].append(row)
+        seed_settled_counts = [
+            (sum(bool_value(row, "settled_landing") for row in seed_rows), len(seed_rows))
+            for seed_rows in seed_groups.values()
+        ]
+        seed_settled_rates = [successes / trials for successes, trials in seed_settled_counts]
+        seed_wilson_uppers = [wilson_upper(successes, trials) for successes, trials in seed_settled_counts]
         min_scales = [float_value(row, "sea_min_scale") for row in subset]
         tilt = [numeric_metric(row, "deck_tilt_max_deg") for row in subset]
         angular = [numeric_metric(row, "sea_deck_angular_speed_max") for row in subset]
@@ -153,6 +179,12 @@ def summarize_profiles(rows: list[dict[str, str]], profiles: dict | None) -> lis
                 "severity_rank": profile.get("severity_rank", -1),
                 "episodes": count,
                 "eval_seeds": ",".join(sorted({row["eval_seed"] for row in subset if row["eval_seed"]})),
+                "eval_seed_count": len(seed_groups),
+                "settled_landing_rate_min_by_seed": min(seed_settled_rates) if seed_settled_rates else math.nan,
+                "settled_landing_rate_max_by_seed": max(seed_settled_rates) if seed_settled_rates else math.nan,
+                "settled_landing_wilson_upper_max_by_seed": (
+                    max(seed_wilson_uppers) if seed_wilson_uppers else math.nan
+                ),
                 "settled_landing_rate": sum(bool_value(row, "settled_landing") for row in subset) / count,
                 "deck_miss_rate": sum(bool_value(row, "deck_miss") for row in subset) / count,
                 "hard_contact_rate": sum(bool_value(row, "hard_contact") for row in subset) / count,
@@ -250,12 +282,32 @@ def boundary_candidates(profile_rows: list[dict[str, object]]) -> dict[str, obje
         grouped[(str(row["policy_label"]), family)].append(row)
     for (policy, family), family_rows in sorted(grouped.items()):
         ordered = sorted(family_rows, key=lambda row: (int(row["severity_rank"]), str(row["profile"])))
-        below = [row for row in ordered if float(row["settled_landing_rate"]) < 0.95]
-        in_target = [row for row in ordered if 0.75 <= float(row["settled_landing_rate"]) <= 0.90]
-        near_target = [row for row in ordered if 0.75 <= float(row["settled_landing_rate"]) < 0.95]
-        chosen = in_target[0] if in_target else (near_target[0] if near_target else (below[0] if below else None))
+        below = [row for row in ordered if float(row["settled_landing_rate"]) < BOUNDARY_SUCCESS_RATE]
+        replicated = [
+            row
+            for row in below
+            if int(row["eval_seed_count"]) >= MIN_BOUNDARY_EVAL_SEEDS
+            and float(row["settled_landing_wilson_upper_max_by_seed"]) < BOUNDARY_SUCCESS_RATE
+        ]
+        eligible = [
+            row
+            for row in replicated
+            if float(row["scaling_fraction"]) <= MAX_BOUNDARY_SCALING_FRACTION
+            and float(row["min_scale_p05"]) >= MIN_BOUNDARY_SCALE_P05
+        ]
+        in_target = [row for row in eligible if 0.75 <= float(row["settled_landing_rate"]) <= 0.90]
+        near_target = [row for row in eligible if 0.75 <= float(row["settled_landing_rate"]) < 0.95]
+        chosen = in_target[0] if in_target else (near_target[0] if near_target else (eligible[0] if eligible else None))
         if chosen is None:
-            statuses.append({"policy_label": policy, "family": family, "status": "no robustness boundary found"})
+            statuses.append(
+                {
+                    "policy_label": policy,
+                    "family": family,
+                    "status": "no repeatable non-scaling-dominated robustness boundary found",
+                    "below_95_profiles": len(below),
+                    "replicated_below_95_profiles": len(replicated),
+                }
+            )
             continue
         success = float(chosen["settled_landing_rate"])
         candidates.append(
@@ -269,10 +321,22 @@ def boundary_candidates(profile_rows: list[dict[str, object]]) -> dict[str, obje
                 "deck_miss_rate": chosen["deck_miss_rate"],
                 "hard_contact_rate": chosen["hard_contact_rate"],
                 "sample_count": chosen["episodes"],
+                "eval_seed_count": chosen["eval_seed_count"],
+                "settled_landing_rate_max_by_seed": chosen["settled_landing_rate_max_by_seed"],
+                "settled_landing_wilson_upper_max_by_seed": chosen[
+                    "settled_landing_wilson_upper_max_by_seed"
+                ],
+                "scaling_fraction": chosen["scaling_fraction"],
+                "min_scale_p05": chosen["min_scale_p05"],
                 "candidate_quality": "adaptation_relevant" if 0.75 <= success <= 0.90 else "transition_signal",
             }
         )
-    return {"candidates": candidates, "family_status": statuses}
+    return {
+        "candidates": candidates,
+        "family_status": statuses,
+        "adaptation_training_allowed": bool(candidates),
+        "adaptation_training_block_reason": None if candidates else "no eligible robustness boundary candidate",
+    }
 
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
@@ -281,7 +345,7 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         path.write_text("")
         return
     with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

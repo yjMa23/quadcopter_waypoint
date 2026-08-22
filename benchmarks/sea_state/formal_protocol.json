@@ -2,16 +2,24 @@
   "status": "BLOCKED_NO_PROFILE_LEVEL_BOUNDARY",
   "benchmark": "Sea-State Benchmark v1",
   "reason": "Teacher pilot did not identify a repeatable factor-isolated profile with settled-landing rate below 95% while preserving the frozen safety envelope and avoiding scaling-dominated distributions.",
+  "boundary_gate": {
+    "minimum_independent_eval_seeds": 2,
+    "per_seed_wilson_95_upper_must_be_below": 0.95,
+    "preferred_aggregate_settled_landing_rate_range": [0.75, 0.90],
+    "maximum_scaling_fraction": 0.20,
+    "minimum_scale_p05": 0.90
+  },
   "nearest_transition_probe": {
     "profile": "frequency_shift_tp1p6_2p0",
     "teacher_eval_seeds": [245, 246],
     "episodes_per_seed": 64,
     "episodes": 128,
     "settled_landing_rate": 0.96875,
+    "settled_landing_wilson_upper_max_by_seed": 0.9972364580766624,
     "deck_miss_rate": 0.03125,
     "hard_contact_rate": 0.0,
     "dominant_motion_metric": "sea_deck_angular_speed_max",
-    "note": "The realized 0.08-0.12 rad/s bucket shows a degradation signal, but the complete profile does not meet the preregistered profile-level adaptation gate."
+    "note": "The realized 0.08-0.12 rad/s bucket shows a degradation signal, but the complete profile does not meet the currently frozen profile-level adaptation gate."
   },
   "actor_preserving_checkpoint_validation": {
     "executed": false,

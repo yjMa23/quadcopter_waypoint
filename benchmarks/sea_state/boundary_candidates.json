@@ -4,22 +4,32 @@
     {
       "policy_label": "teacher",
       "family": "combined_shift",
-      "status": "no robustness boundary found"
+      "status": "no repeatable non-scaling-dominated robustness boundary found",
+      "below_95_profiles": 0,
+      "replicated_below_95_profiles": 0
     },
     {
       "policy_label": "teacher",
       "family": "frequency_shift",
-      "status": "no robustness boundary found"
+      "status": "no repeatable non-scaling-dominated robustness boundary found",
+      "below_95_profiles": 0,
+      "replicated_below_95_profiles": 0
     },
     {
       "policy_label": "teacher",
       "family": "heave_rate_shift",
-      "status": "no robustness boundary found"
+      "status": "no repeatable non-scaling-dominated robustness boundary found",
+      "below_95_profiles": 0,
+      "replicated_below_95_profiles": 0
     },
     {
       "policy_label": "teacher",
       "family": "tilt_shift",
-      "status": "no robustness boundary found"
+      "status": "no repeatable non-scaling-dominated robustness boundary found",
+      "below_95_profiles": 0,
+      "replicated_below_95_profiles": 0
     }
-  ]
+  ],
+  "adaptation_training_allowed": false,
+  "adaptation_training_block_reason": "no eligible robustness boundary candidate"
 }

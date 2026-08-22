@@ -241,13 +241,13 @@ combined_shift_*
 
 直接缩短 `Tp` 会被冻结二阶 low-pass response 同时衰减 motion amplitude，因此 profile 的 response gain 仅作为**幅值归一化因子**，使 realized tilt 保持约 3° P95 附近、主要让 realized angular rate 随频率提高。
 
-512-realization 离线 audit 中，前六档 P95 tilt 约 `2.86..3.22 deg`，P95 angular speed 从约 `0.051` 增至 `0.146 rad/s`，均无 spectral scaling；最终 `Tp=1.6..2.0 s` probe 为：
+512-realization 离线 audit 对全部频率剖面复用同一基础种子和随机数流；因此七档的 `Hs` 与 `gamma` 样本均值分别完全相同。前六档 P95 tilt 约 `2.86..3.13 deg`，P95 angular speed 从约 `0.051` 严格递增至 `0.145 rad/s`，均无 spectral scaling；最终 `Tp=1.6..2.0 s` probe 为：
 
 ```text
 tilt P95             ≈ 3.38 deg
-deck angular P50/P95 ≈ 0.133 / 0.192 rad/s
-heave velocity P95   ≈ 0.209 m/s
-scaling fraction     ≈ 4.5%
+deck angular P50/P95 ≈ 0.131 / 0.194 rad/s
+heave velocity P95   ≈ 0.213 m/s
+scaling fraction     ≈ 4.9%
 scale P50            = 1.0
 ```
 
@@ -262,6 +262,8 @@ policy outcome
 ```
 
 而不是把 `Tp` 本身当作策略 observation。
+
+频率族还显式记录目标倾角 P95 `3.0±0.5 deg`。离线实现统计用共同基础种子 `20260815`、每剖面 512 个实现、10 s 时长和 0.05 s 采样间隔计算当前 P95，并按 `next_gain=current_gain*target_P95/realized_P95` 给出下一次响应增益；只有实际 P95 在容差内且缩放质量门槛合格才冻结。当前七个频率剖面均为 `PASS`，目标、容差、冻结增益和推荐增益均写入 profile/realization 结果，不依赖未记录的经验调节。
 
 ### 8.2 Tilt shift
 
@@ -469,7 +471,7 @@ deck miss 概率增加
 
 ## 14. Automatic robustness-boundary result
 
-自动逻辑按每个 family 的 `severity_rank` 排序，并寻找从 `>=95%` 进入 `75..90%` 或至少 `<95%` 的 profile-level transition。
+自动逻辑按每个 family 的 `severity_rank` 排序，并寻找从 `>=95%` 进入 `75..90%` 或至少 `<95%` 的 profile-level transition。候选剖面还必须同时满足：至少两个独立评价种子、每个种子稳定降落率的 Wilson 95% 置信区间上界均低于 95%、发生系数缩放的回合比例不超过 20%，且逐回合最小缩放因子的 5 分位不低于 0.90。这样不会把单种子或小样本波动、主要由安全包络缩放形成的分布误判为控制策略鲁棒性边界。
 
 本轮输出：
 
@@ -480,7 +482,9 @@ heave_rate_shift:no robustness boundary found
 tilt_shift:      no robustness boundary found
 ```
 
-因此 `boundary_candidates.json` 的 `candidates` 为空。
+因此 `boundary_candidates.json` 的 `candidates` 为空、`adaptation_training_allowed=false`，并记录阻断原因为 `no eligible robustness boundary candidate`。
+
+最接近的 `frequency_shift_tp1p6_2p0` 虽有两个评价种子，但其稳定降落率分别为 95.31% 和 98.44%，每种子 Wilson 95% 置信区间上界的最大值为 99.72%，故不满足跨种子置信门槛。2026-08-22 为增益校准、自动门控、共同随机数及缩放—截断对照新增独立测试后，Sea-State 运动、剖面、任务契约和边界门控合计 18 项测试全部通过。
 
 这不是分析失败，而是当前 frozen policy 在已接受、安全且非 scaling-dominated 的 Sea-State v1 controlled shifts 下仍保持较强 zero-shot robustness。
 
@@ -492,7 +496,7 @@ tilt_shift:      no robustness boundary found
 actor input = 22
 ```
 
-但本轮**没有执行它们的 candidate-condition evaluation**，原因是 teacher 没有产生满足预注册条件的 profile-level candidate。按协议，先用 actor-preserving checkpoints 去追一个未成立的 boundary 会引入不必要的多重比较。
+但本轮**没有执行它们的 candidate-condition evaluation**，原因是 teacher 没有产生满足当前冻结门槛的 profile-level candidate。按协议，先用 actor-preserving checkpoints 去追一个未成立的 boundary 会引入不必要的多重比较。
 
 后续一旦 teacher profile-level candidate 成立，再执行：
 
@@ -526,7 +530,7 @@ PPO training                   NOT STARTED
 
 > **不进入 PPO scratch、ordinary fine-tuning 或 actor-preserving fine-tuning。继续设计更窄、更可控的 target distribution，优先围绕 realized angular speed 0.08..0.12 rad/s 与 heave velocity 0.08..0.12 m/s 的局部退化区间做复现实验，而不是继续提高 Hs 或放宽安全 envelope。**
 
-## 17. 下一阶段 protocol（只预注册，不执行）
+## 17. 下一阶段 protocol（只冻结计划，不执行）
 
 只有新的 controlled distribution 在多个 teacher eval seeds 下形成可重复 boundary 后，才进入：
 

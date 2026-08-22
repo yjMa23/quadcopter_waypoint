@@ -21,7 +21,7 @@ It records the frozen Sea-State v1 health checks and the factor-isolated zero-sh
 - `pilot_results.csv`: per-policy/profile aggregate metrics.
 - `pilot_summary.json`: machine-readable pilot summary.
 - `robustness_curves.csv`: realized angular-speed, tilt, heave-velocity, Tp and Hs buckets.
-- `boundary_candidates.json`: automatic profile-level boundary output.
+- `boundary_candidates.json`: automatic profile-level boundary and machine-readable adaptation-training admission output.
 - `failure_analysis.csv`: outcome-conditioned realized-motion/contact statistics.
 - `formal_protocol.json`: blocked formal/adaptation protocol and selected checkpoint paths.
 - `commands.txt`: reproduction commands.
@@ -52,7 +52,7 @@ heave_rate_shift:no robustness boundary found
 combined_shift:  no robustness boundary found
 ```
 
-No PPO training was started, and the metric-selected actor-preserving checkpoints were not evaluated on a shifted candidate because the teacher gate did not open. Their actor inputs were nevertheless verified as 22-D and their paths are recorded in `formal_protocol.json`.
+No PPO training was started, and the metric-selected actor-preserving checkpoints were not evaluated on a shifted candidate because the teacher gate did not open. `boundary_candidates.json` explicitly reports `adaptation_training_allowed=false` and its block reason. Their actor inputs were nevertheless verified as 22-D and their paths are recorded in `formal_protocol.json`.
 
 ## Strongest realized-motion signal
 

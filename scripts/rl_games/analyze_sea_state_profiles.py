@@ -52,6 +52,13 @@ def uniform(count: int, low: float, high: float, generator: torch.Generator) -> 
     return low + (high - low) * torch.rand(count, generator=generator)
 
 
+def proportional_gain_update(current_gain: float, realized_statistic: float, target_statistic: float) -> float:
+    """Return the next response gain for a linearly scaling realization statistic."""
+    if current_gain <= 0.0 or realized_statistic <= 0.0 or target_statistic <= 0.0:
+        raise ValueError("gain calibration requires positive current, realized, and target values")
+    return current_gain * target_statistic / realized_statistic
+
+
 def response_config(env: dict[str, float]) -> SurrogateResponseConfig:
     get = lambda key: env.get(key, DEFAULTS[key])
     return SurrogateResponseConfig(
@@ -67,7 +74,9 @@ def response_config(env: dict[str, float]) -> SurrogateResponseConfig:
     )
 
 
-def analyze_profile(name: str, profile: dict, count: int, seed: int, sample_dt: float) -> dict[str, float | int | str]:
+def analyze_profile(
+    name: str, profile: dict, count: int, seed: int, sample_dt: float
+) -> dict[str, float | int | str | None]:
     env = {**DEFAULTS, **profile["env"]}
     if env.get("sea_state_mode") == "compatibility":
         return {
@@ -78,7 +87,8 @@ def analyze_profile(name: str, profile: dict, count: int, seed: int, sample_dt: 
             "status": "compatibility_not_stochastic",
         }
 
-    generator = torch.Generator().manual_seed(seed + 1009 * int(profile["severity_rank"]))
+    # Reuse common random numbers so differences between profiles come from profile parameters.
+    generator = torch.Generator().manual_seed(seed)
     hs = uniform(count, float(env["sea_state_hs_min_m"]), float(env["sea_state_hs_max_m"]), generator)
     tp = uniform(count, float(env["sea_state_tp_min_s"]), float(env["sea_state_tp_max_s"]), generator)
     gamma = uniform(count, float(env["sea_state_gamma_min"]), float(env["sea_state_gamma_max"]), generator)
@@ -136,7 +146,26 @@ def analyze_profile(name: str, profile: dict, count: int, seed: int, sample_dt: 
         steps += 1
 
     minimum_scale = torch.minimum(torch.minimum(heave_scale, roll_scale), pitch_scale)
-    result: dict[str, float | int | str] = {
+    tilt_p95_deg = math.degrees(percentile(tilt_max, 95))
+    target_tilt_p95_deg = profile.get("target_tilt_p95_deg")
+    target_tilt_tolerance_deg = profile.get("target_tilt_tolerance_deg")
+    current_roll_pitch_gain = 0.5 * (
+        float(env["sea_state_roll_gain_deg_per_m"]) + float(env["sea_state_pitch_gain_deg_per_m"])
+    )
+    recommended_gain = (
+        proportional_gain_update(current_roll_pitch_gain, tilt_p95_deg, float(target_tilt_p95_deg))
+        if target_tilt_p95_deg is not None
+        else None
+    )
+    calibration_status = "not_applicable"
+    if target_tilt_p95_deg is not None and target_tilt_tolerance_deg is not None:
+        calibration_status = (
+            "PASS"
+            if abs(tilt_p95_deg - float(target_tilt_p95_deg)) <= float(target_tilt_tolerance_deg)
+            else "UPDATE_REQUIRED"
+        )
+
+    result: dict[str, float | int | str | None] = {
         "profile": name,
         "family": profile["family"],
         "severity_rank": profile["severity_rank"],
@@ -149,7 +178,7 @@ def analyze_profile(name: str, profile: dict, count: int, seed: int, sample_dt: 
         "heave_max_p50_m": percentile(heave_max, 50),
         "heave_max_p95_m": percentile(heave_max, 95),
         "tilt_max_p50_deg": math.degrees(percentile(tilt_max, 50)),
-        "tilt_max_p95_deg": math.degrees(percentile(tilt_max, 95)),
+        "tilt_max_p95_deg": tilt_p95_deg,
         "roll_max_p95_deg": math.degrees(percentile(roll_max, 95)),
         "pitch_max_p95_deg": math.degrees(percentile(pitch_max, 95)),
         "heave_velocity_max_p50_mps": percentile(heave_rate_max, 50),
@@ -164,6 +193,10 @@ def analyze_profile(name: str, profile: dict, count: int, seed: int, sample_dt: 
         "heave_scale_p05": percentile(heave_scale, 5),
         "roll_scale_p05": percentile(roll_scale, 5),
         "pitch_scale_p05": percentile(pitch_scale, 5),
+        "tilt_target_p95_deg": target_tilt_p95_deg,
+        "tilt_target_tolerance_deg": target_tilt_tolerance_deg,
+        "tilt_calibration_status": calibration_status,
+        "recommended_roll_pitch_gain_deg_per_m": recommended_gain,
     }
     return result
 
@@ -184,7 +217,7 @@ def main() -> None:
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(stochastic_rows[0].keys())
     with args.output_csv.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     args.output_json.write_text(json.dumps(rows, indent=2) + "\n")

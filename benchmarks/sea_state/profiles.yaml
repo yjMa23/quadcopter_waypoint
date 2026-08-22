@@ -38,6 +38,8 @@ profiles:
   frequency_shift_tp6p0_7p0:
     family: frequency_shift
     severity_rank: 0
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Slow spectral peak with amplitude-normalized frozen surrogate response.
     env: &frequency_common
       sea_state_mode: stochastic
@@ -56,6 +58,8 @@ profiles:
   frequency_shift_tp5p0_6p0:
     family: frequency_shift
     severity_rank: 1
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Moderately slow spectral peak with amplitude normalization.
     env:
       <<: *frequency_common
@@ -68,6 +72,8 @@ profiles:
   frequency_shift_tp4p0_5p0:
     family: frequency_shift
     severity_rank: 2
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Mid-frequency reference band with amplitude normalization.
     env:
       <<: *frequency_common
@@ -80,6 +86,8 @@ profiles:
   frequency_shift_tp3p2_4p0:
     family: frequency_shift
     severity_rank: 3
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Fast spectral peak with amplitude normalization.
     env:
       <<: *frequency_common
@@ -92,6 +100,8 @@ profiles:
   frequency_shift_tp2p5_3p2:
     family: frequency_shift
     severity_rank: 4
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Fastest first-pass peak inside the frozen 0.05-0.80 Hz grid, amplitude-normalized.
     env:
       <<: *frequency_common
@@ -104,6 +114,8 @@ profiles:
   frequency_shift_tp2p0_2p5:
     family: frequency_shift
     severity_rank: 5
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Boundary-search extension with a faster peak; response gain remains only an amplitude-normalization factor.
     env:
       <<: *frequency_common
@@ -116,6 +128,8 @@ profiles:
   frequency_shift_tp1p6_2p0:
     family: frequency_shift
     severity_rank: 6
+    target_tilt_p95_deg: 3.0
+    target_tilt_tolerance_deg: 0.5
     description: Final boundary-search extension; peak remains inside the frozen 0.05-0.80 Hz grid and response gains only normalize amplitude lost through the frozen low-pass surrogate.
     env:
       <<: *frequency_common

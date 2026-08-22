@@ -150,3 +150,24 @@ def test_conservative_bound_and_uniform_scaling_are_safe():
     for time_value in torch.linspace(0.0, 10.0, 101, dtype=torch.float64):
         values, _ = synthesize_components(torch.full((2,), time_value), omega, scaled, phases)
         assert torch.all(torch.abs(values) <= 0.05 + 1.0e-12)
+
+
+def test_component_scaling_preserves_pose_rate_consistency_that_runtime_clamp_breaks():
+    omega = _tensor([1.0])
+    amplitudes = _tensor([[0.20]])
+    phases = _tensor([[0.0]])
+    time = _tensor([0.50])
+    dt = 1.0e-6
+
+    _, raw_rate = synthesize_components(time, omega, amplitudes, phases)
+    raw_plus, _ = synthesize_components(time + dt, omega, amplitudes, phases)
+    raw_minus, _ = synthesize_components(time - dt, omega, amplitudes, phases)
+    clamped_numerical_rate = (raw_plus.clamp(-0.10, 0.10) - raw_minus.clamp(-0.10, 0.10)) / (2.0 * dt)
+    assert float(torch.abs(raw_rate - clamped_numerical_rate)) > 0.09
+
+    scaled, _ = scale_components_to_bound(amplitudes, maximum_abs_value=0.10)
+    _, scaled_rate = synthesize_components(time, omega, scaled, phases)
+    scaled_plus, _ = synthesize_components(time + dt, omega, scaled, phases)
+    scaled_minus, _ = synthesize_components(time - dt, omega, scaled, phases)
+    scaled_numerical_rate = (scaled_plus - scaled_minus) / (2.0 * dt)
+    torch.testing.assert_close(scaled_rate, scaled_numerical_rate, atol=1.0e-10, rtol=1.0e-9)

@@ -1,12 +1,15 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from quadcopter_waypoint.utils.sea_state_profiles import hydra_env_overrides, load_sea_state_profiles
+from scripts.rl_games.analyze_sea_state_profiles import proportional_gain_update
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "benchmarks/sea_state/profiles.yaml"
+REALIZATION_SUMMARY = ROOT / "benchmarks/sea_state/profile_realization_summary.json"
 
 
 def family(profiles: dict, name: str) -> list[tuple[str, dict]]:
@@ -72,3 +75,14 @@ def test_profile_loader_rejects_core_math_override(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="unsupported env fields"):
         load_sea_state_profiles(invalid)
+
+
+def test_proportional_gain_update_targets_realized_amplitude():
+    assert proportional_gain_update(current_gain=40.0, realized_statistic=2.5, target_statistic=3.0) == 48.0
+
+
+def test_frequency_profile_audit_uses_common_random_numbers():
+    rows = json.loads(REALIZATION_SUMMARY.read_text())
+    frequency = [row for row in rows if row["family"] == "frequency_shift"]
+    assert len({row["hs_mean_m"] for row in frequency}) == 1
+    assert len({row["gamma_mean"] for row in frequency}) == 1

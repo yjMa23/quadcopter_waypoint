@@ -38,7 +38,7 @@ $PYTHON scripts/rl_games/analyze_sea_state_robustness.py --profiles $PROFILES --
 # Once a teacher candidate exists, use 64-128 episodes/checkpoint for lightweight validation, e.g.:
 # $PYTHON scripts/rl_games/run_sea_state_robustness.py --checkpoint <METRIC_SELECTED_CHECKPOINT> --policy_label metric_seed42 --actor_preserving --profile <BOUNDARY_PROFILE> --seed 245 --num_envs 32 --episodes 128
 
-# Preregistered formal protocol after the gate opens:
+# Currently frozen follow-up protocol after the gate opens:
 # 3 metric-selected checkpoints x 3 eval seeds (245,246,247) x 256 episodes = 2304 episodes / condition.
 # See benchmarks/sea_state/formal_protocol.json. No PPO training is run by this benchmark study.
 
