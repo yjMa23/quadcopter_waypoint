@@ -1,0 +1,17 @@
+mode,policy,episodes,settled_landing_rate,deck_miss_rate,hard_contact_rate,ground_crash_rate,timeout_rate,touchdown_xy_error_mean_m
+original,teacher,32,1.0,0.0,0.0,0.0,0.0,0.0597808064
+compatibility,teacher,32,1.0,0.0,0.0,0.0,0.0,0.0597808064
+mild,teacher,32,1.0,0.0,0.0,0.0,0.0,0.0492970456
+shifted,teacher,32,1.0,0.0,0.0,0.0,0.0,0.0596538597
+original,metric_seed42,32,0.875,0.125,0.0,0.0,0.0,0.0776506887
+compatibility,metric_seed42,32,0.875,0.125,0.0,0.0,0.0,0.0776506887
+mild,metric_seed42,32,1.0,0.0,0.0,0.0,0.0,0.0594674041
+shifted,metric_seed42,32,1.0,0.0,0.0,0.0,0.0,0.0517079990
+original,metric_seed43,32,1.0,0.0,0.0,0.0,0.0,0.0453008054
+compatibility,metric_seed43,32,1.0,0.0,0.0,0.0,0.0,0.0453008054
+mild,metric_seed43,32,1.0,0.0,0.0,0.0,0.0,0.0448695183
+shifted,metric_seed43,32,1.0,0.0,0.0,0.0,0.0,0.0532104498
+original,metric_seed44,32,0.9375,0.0625,0.0,0.0,0.0,0.0619717095
+compatibility,metric_seed44,32,0.9375,0.0625,0.0,0.0,0.0,0.0619717095
+mild,metric_seed44,32,0.96875,0.03125,0.0,0.0,0.0,0.0690998897
+shifted,metric_seed44,32,0.90625,0.09375,0.03125,0.0,0.0,0.0789947139

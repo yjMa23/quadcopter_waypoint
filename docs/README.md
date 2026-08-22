@@ -10,6 +10,8 @@
 | `imitation_hybrid_paper.md` | imitation-learning benchmark 专家数据、BC、共享 actor/critic PPO 与负结果解释 |
 | `checkpoint_selection_and_policy_drift.md` | checkpoint-selection analysis 周期 checkpoint 选模、独立测试和 policy drift 理论说明 |
 | `actor_preserving_ppo.md` | actor-preserving PPO 设计、预注册、实现映射与结果回填主文档 |
+| `sea_state_benchmark.md` | 独立 stochastic Sea-State benchmark：JONSWAP、surrogate vessel response、解析运动、安全 envelope、compatibility regression 与 zero-shot protocol |
+| `RL_LONG_TERM_ROADMAP.md` | RL 研究长期路线：冻结基线、Sea-State 鲁棒边界、distribution-shift adaptation、感知退化、分层 RL、selective dynamics randomization、PX4/HIL 与论文正式指标 |
 | `imitation_hybrid_interview_evidence.md` | imitation-learning benchmark 面试表述、数据证据、失败归因和可使用结论 |
 | `../benchmarks/checkpoint_selection/README.md` | checkpoint-selection analysis 原始 benchmark、命令与图表入口 |
 | `runtime_display_troubleshooting.md` | Isaac Sim 默认 display、GUI、SSH、tmux、Docker 和 headless 视频说明 |

@@ -119,6 +119,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 | 模仿学习与普通 BC+PPO | `docs/imitation_hybrid_paper.md` |
 | checkpoint 选模与 policy drift | `docs/checkpoint_selection_and_policy_drift.md` |
 | actor-preserving PPO | `docs/actor_preserving_ppo.md` |
+| stochastic Sea-State benchmark | `docs/sea_state_benchmark.md` |
 | 文献综述与研究路线 | `docs/literature_review_ship_landing_rl.md`、`docs/literature_comparison_matrix.md` |
 | benchmark 数据 | `benchmarks/` |
 
@@ -126,7 +127,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 
 ## 当前客观限制
 
-- 甲板运动目前主要是确定性正弦 roll/pitch，尚未覆盖随机波谱、yaw、水动力和完整船舶六自由度运动。
+- 已新增独立 JONSWAP stochastic Sea-State benchmark，但 vessel response 仍是可解释 surrogate，不是实测 RAO；尚未覆盖 yaw、完整水动力和六自由度船舶动力学。
 - 策略使用仿真中的精确相对状态，尚未加入视觉估计误差、延迟、丢帧和传感器噪声。
 - demonstration 只保留 teacher 成功回合，对分布外扰动与失败恢复的覆盖有限。
 - 接触、旋翼气动和船体运动仍是仿真模型，尚未完成系统辨识或实机闭环验证。
@@ -134,7 +135,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 
 ## 后续待完成
 
-- 引入随机海况与 JONSWAP 波谱，扩展甲板运动分布。
+- 扩大 Sea-State zero-shot 多 seed 评估，并在安全 envelope 内确定可复现的 distribution-shift degradation boundary。
 - 加入动力学随机化，并用实测数据完成系统辨识。
 - 接入 ArUco 相对状态估计，建模噪声、延迟、丢帧和状态历史。
 - 建立 PID 与 NMPC baseline，统一成功定义和评估预算后比较。

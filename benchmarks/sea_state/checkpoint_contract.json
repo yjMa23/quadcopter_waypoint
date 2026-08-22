@@ -1,0 +1,30 @@
+{
+  "observation_dimension": 22,
+  "action_dimension": 4,
+  "checkpoints": [
+    {
+      "role": "frozen_teacher",
+      "path": "logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth",
+      "actor_first_layer_shape": [64, 22]
+    },
+    {
+      "role": "metric_selected_seed42",
+      "path": "logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth",
+      "actor_first_layer_shape": [64, 22],
+      "critic_first_layer_shape": [64, 22]
+    },
+    {
+      "role": "metric_selected_seed43",
+      "path": "logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/last_actor_preserving_formal_lambda50_ep_30_rew_63.345257.pth",
+      "actor_first_layer_shape": [64, 22],
+      "critic_first_layer_shape": [64, 22]
+    },
+    {
+      "role": "metric_selected_seed44",
+      "path": "logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/actor_preserving_formal_lambda50.pth",
+      "actor_first_layer_shape": [64, 22],
+      "critic_first_layer_shape": [64, 22]
+    }
+  ],
+  "status": "PASS"
+}

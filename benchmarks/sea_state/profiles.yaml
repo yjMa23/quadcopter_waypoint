@@ -1,0 +1,303 @@
+version: 1
+benchmark: Sea-State Benchmark v1
+profile_type: engineering_benchmark_profiles
+notes:
+  - Profiles control input distributions only; Sea-State v1 JONSWAP/response/synthesis/scaling math stays frozen.
+  - Names describe controlled factors and must not be interpreted as validated real-world sea-state classes.
+  - Frequency-family response gains are amplitude-normalization factors chosen from offline realization diagnostics so Tp primarily changes realized motion rate rather than trivially shrinking the response through the frozen low-pass surrogate.
+
+profiles:
+  compatibility:
+    family: compatibility
+    severity_rank: 0
+    description: Exact frozen PhysicalDeckAttitude deterministic motion path.
+    env:
+      sea_state_mode: compatibility
+
+  nominal_stochastic:
+    family: nominal
+    severity_rank: 0
+    description: Frozen Sea-State v1 nominal stochastic benchmark definition.
+    env:
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.18
+      sea_state_hs_max_m: 0.30
+      sea_state_tp_min_s: 3.8
+      sea_state_tp_max_s: 5.8
+      sea_state_gamma_min: 2.5
+      sea_state_gamma_max: 4.0
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 1.0
+      sea_state_heave_natural_frequency_hz: 0.24
+      sea_state_roll_gain_deg_per_m: 50.0
+      sea_state_roll_natural_frequency_hz: 0.13
+      sea_state_pitch_gain_deg_per_m: 50.0
+      sea_state_pitch_natural_frequency_hz: 0.13
+
+  frequency_shift_tp6p0_7p0:
+    family: frequency_shift
+    severity_rank: 0
+    description: Slow spectral peak with amplitude-normalized frozen surrogate response.
+    env: &frequency_common
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.16
+      sea_state_hs_max_m: 0.20
+      sea_state_tp_min_s: 6.0
+      sea_state_tp_max_s: 7.0
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.68
+      sea_state_roll_gain_deg_per_m: 40.0
+      sea_state_pitch_gain_deg_per_m: 40.0
+
+  frequency_shift_tp5p0_6p0:
+    family: frequency_shift
+    severity_rank: 1
+    description: Moderately slow spectral peak with amplitude normalization.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 5.0
+      sea_state_tp_max_s: 6.0
+      sea_state_heave_gain: 0.75
+      sea_state_roll_gain_deg_per_m: 52.0
+      sea_state_pitch_gain_deg_per_m: 52.0
+
+  frequency_shift_tp4p0_5p0:
+    family: frequency_shift
+    severity_rank: 2
+    description: Mid-frequency reference band with amplitude normalization.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 4.0
+      sea_state_tp_max_s: 5.0
+      sea_state_heave_gain: 0.84
+      sea_state_roll_gain_deg_per_m: 72.0
+      sea_state_pitch_gain_deg_per_m: 72.0
+
+  frequency_shift_tp3p2_4p0:
+    family: frequency_shift
+    severity_rank: 3
+    description: Fast spectral peak with amplitude normalization.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 3.2
+      sea_state_tp_max_s: 4.0
+      sea_state_heave_gain: 1.03
+      sea_state_roll_gain_deg_per_m: 110.0
+      sea_state_pitch_gain_deg_per_m: 110.0
+
+  frequency_shift_tp2p5_3p2:
+    family: frequency_shift
+    severity_rank: 4
+    description: Fastest first-pass peak inside the frozen 0.05-0.80 Hz grid, amplitude-normalized.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 2.5
+      sea_state_tp_max_s: 3.2
+      sea_state_heave_gain: 1.35
+      sea_state_roll_gain_deg_per_m: 165.0
+      sea_state_pitch_gain_deg_per_m: 165.0
+
+  frequency_shift_tp2p0_2p5:
+    family: frequency_shift
+    severity_rank: 5
+    description: Boundary-search extension with a faster peak; response gain remains only an amplitude-normalization factor.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 2.0
+      sea_state_tp_max_s: 2.5
+      sea_state_heave_gain: 1.85
+      sea_state_roll_gain_deg_per_m: 260.0
+      sea_state_pitch_gain_deg_per_m: 260.0
+
+  frequency_shift_tp1p6_2p0:
+    family: frequency_shift
+    severity_rank: 6
+    description: Final boundary-search extension; peak remains inside the frozen 0.05-0.80 Hz grid and response gains only normalize amplitude lost through the frozen low-pass surrogate.
+    env:
+      <<: *frequency_common
+      sea_state_tp_min_s: 1.6
+      sea_state_tp_max_s: 2.0
+      sea_state_heave_gain: 2.70
+      sea_state_roll_gain_deg_per_m: 420.0
+      sea_state_pitch_gain_deg_per_m: 420.0
+
+  tilt_shift_target2deg:
+    family: tilt_shift
+    severity_rank: 0
+    description: Approximately 2 deg realized P95 tilt envelope; spectrum fixed across tilt family.
+    env: &tilt_common
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.16
+      sea_state_hs_max_m: 0.20
+      sea_state_tp_min_s: 4.4
+      sea_state_tp_max_s: 5.2
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.75
+      sea_state_roll_gain_deg_per_m: 42.0
+      sea_state_pitch_gain_deg_per_m: 42.0
+
+  tilt_shift_target3deg:
+    family: tilt_shift
+    severity_rank: 1
+    description: Approximately 3 deg realized P95 tilt envelope.
+    env:
+      <<: *tilt_common
+      sea_state_roll_gain_deg_per_m: 64.0
+      sea_state_pitch_gain_deg_per_m: 64.0
+
+  tilt_shift_target4deg:
+    family: tilt_shift
+    severity_rank: 2
+    description: Approximately 4 deg realized P95 tilt envelope.
+    env:
+      <<: *tilt_common
+      sea_state_roll_gain_deg_per_m: 86.0
+      sea_state_pitch_gain_deg_per_m: 86.0
+
+  tilt_shift_target5deg:
+    family: tilt_shift
+    severity_rank: 3
+    description: Approximately 5 deg realized P95 tilt envelope.
+    env:
+      <<: *tilt_common
+      sea_state_roll_gain_deg_per_m: 108.0
+      sea_state_pitch_gain_deg_per_m: 108.0
+
+  tilt_shift_target6deg:
+    family: tilt_shift
+    severity_rank: 4
+    description: Highest accepted tilt pilot level; approximately 6 deg P95 while avoiding scaling-dominated realizations.
+    env:
+      <<: *tilt_common
+      sea_state_roll_gain_deg_per_m: 125.0
+      sea_state_pitch_gain_deg_per_m: 125.0
+
+  heave_rate_shift_low:
+    family: heave_rate_shift
+    severity_rank: 0
+    description: Low vertical-rate response on fixed fast spectrum; angular gains deliberately suppressed.
+    env: &heave_common
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.10
+      sea_state_hs_max_m: 0.14
+      sea_state_tp_min_s: 2.0
+      sea_state_tp_max_s: 2.6
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.30
+      sea_state_heave_natural_frequency_hz: 0.45
+      sea_state_roll_gain_deg_per_m: 15.0
+      sea_state_pitch_gain_deg_per_m: 15.0
+
+  heave_rate_shift_medium_low:
+    family: heave_rate_shift
+    severity_rank: 1
+    description: Low-medium vertical-rate response.
+    env:
+      <<: *heave_common
+      sea_state_heave_gain: 0.55
+
+  heave_rate_shift_medium:
+    family: heave_rate_shift
+    severity_rank: 2
+    description: Medium vertical-rate response.
+    env:
+      <<: *heave_common
+      sea_state_heave_gain: 0.80
+
+  heave_rate_shift_medium_high:
+    family: heave_rate_shift
+    severity_rank: 3
+    description: Medium-high vertical-rate response.
+    env:
+      <<: *heave_common
+      sea_state_heave_gain: 1.05
+
+  heave_rate_shift_high:
+    family: heave_rate_shift
+    severity_rank: 4
+    description: High vertical-rate pilot level selected to avoid the scaling-dominated 1.35-gain design.
+    env:
+      <<: *heave_common
+      sea_state_heave_gain: 1.30
+
+  combined_medium_tilt_medium_rate:
+    family: combined_shift
+    severity_rank: 0
+    description: Medium tilt with medium-fast motion rate; gains normalize tilt severity across rate conditions.
+    env: &combined_medium_rate
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.16
+      sea_state_hs_max_m: 0.20
+      sea_state_tp_min_s: 3.4
+      sea_state_tp_max_s: 4.1
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.75
+      sea_state_roll_gain_deg_per_m: 130.0
+      sea_state_pitch_gain_deg_per_m: 130.0
+
+  combined_high_tilt_medium_rate:
+    family: combined_shift
+    severity_rank: 1
+    description: High tilt with the same medium-fast motion rate, below scaling-dominated response gain.
+    env:
+      <<: *combined_medium_rate
+      sea_state_roll_gain_deg_per_m: 165.0
+      sea_state_pitch_gain_deg_per_m: 165.0
+
+  combined_medium_tilt_high_rate:
+    family: combined_shift
+    severity_rank: 2
+    description: Medium tilt with high-rate spectrum; gain compensates frozen surrogate attenuation.
+    env: &combined_high_rate
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.16
+      sea_state_hs_max_m: 0.20
+      sea_state_tp_min_s: 2.6
+      sea_state_tp_max_s: 3.2
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.75
+      sea_state_roll_gain_deg_per_m: 220.0
+      sea_state_pitch_gain_deg_per_m: 220.0
+
+  combined_high_tilt_high_rate:
+    family: combined_shift
+    severity_rank: 3
+    description: High tilt with high-rate spectrum, gain reduced to keep conservative scaling secondary.
+    env:
+      <<: *combined_high_rate
+      sea_state_roll_gain_deg_per_m: 260.0
+      sea_state_pitch_gain_deg_per_m: 260.0
+
+  combined_high_tilt_very_high_rate:
+    family: combined_shift
+    severity_rank: 4
+    description: "Final interaction-boundary probe: high tilt plus the fastest accepted spectral band, without changing Sea-State v1 core math."
+    env:
+      sea_state_mode: stochastic
+      sea_state_hs_min_m: 0.16
+      sea_state_hs_max_m: 0.20
+      sea_state_tp_min_s: 2.0
+      sea_state_tp_max_s: 2.5
+      sea_state_gamma_min: 2.8
+      sea_state_gamma_max: 3.4
+      sea_state_heading_min_deg: -180.0
+      sea_state_heading_max_deg: 180.0
+      sea_state_heave_gain: 0.75
+      sea_state_roll_gain_deg_per_m: 400.0
+      sea_state_pitch_gain_deg_per_m: 400.0

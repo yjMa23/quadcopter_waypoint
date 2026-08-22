@@ -1,0 +1,25 @@
+{
+  "candidates": [],
+  "family_status": [
+    {
+      "policy_label": "teacher",
+      "family": "combined_shift",
+      "status": "no robustness boundary found"
+    },
+    {
+      "policy_label": "teacher",
+      "family": "frequency_shift",
+      "status": "no robustness boundary found"
+    },
+    {
+      "policy_label": "teacher",
+      "family": "heave_rate_shift",
+      "status": "no robustness boundary found"
+    },
+    {
+      "policy_label": "teacher",
+      "family": "tilt_shift",
+      "status": "no robustness boundary found"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+# Sea-State Benchmark v1 robustness study
+# Run from /home/j/Isaac_RL_Projects/quadcopter_waypoint
+
+PYTHON=/home/j/anaconda3/envs/env_isaaclab/bin/python
+export PYTHONPATH=source/quadcopter_waypoint
+TEACHER=logs/rl_games/quadcopter_ship_landing_physical_deck_attitude/expanded_from_physical_deck_ep990_16to22.pth
+PROFILES=benchmarks/sea_state/profiles.yaml
+
+# Frozen regression and tests
+$PYTHON -m pytest -q tests
+$PYTHON scripts/rl_games/check_sea_state_compatibility.py --num_envs=16 --headless
+$PYTHON scripts/rl_games/check_sea_state_physics.py --num_envs=1 --motion_steps=500 --seed=42 --headless --output benchmarks/sea_state/physics_1env.json
+$PYTHON scripts/rl_games/check_sea_state_physics.py --num_envs=16 --motion_steps=500 --seed=42 --headless --output benchmarks/sea_state/physics_16env.json
+
+# Offline profile-realization audit before policy evaluation
+$PYTHON scripts/rl_games/analyze_sea_state_profiles.py --profiles $PROFILES --samples=512
+
+# Frozen-teacher factor-isolated pilot scans
+$PYTHON scripts/rl_games/run_sea_state_robustness.py --profiles $PROFILES --checkpoint $TEACHER --policy_label teacher --family frequency_shift --seed 245 --num_envs 32 --episodes 64
+$PYTHON scripts/rl_games/run_sea_state_robustness.py --profiles $PROFILES --checkpoint $TEACHER --policy_label teacher --family tilt_shift --seed 245 --num_envs 32 --episodes 64
+$PYTHON scripts/rl_games/run_sea_state_robustness.py --profiles $PROFILES --checkpoint $TEACHER --policy_label teacher --family heave_rate_shift --seed 245 --num_envs 32 --episodes 64
+$PYTHON scripts/rl_games/run_sea_state_robustness.py --profiles $PROFILES --checkpoint $TEACHER --policy_label teacher --family combined_shift --seed 245 --num_envs 32 --episodes 64
+
+# Repeat the nearest frequency transition probe with an independent eval seed.
+$PYTHON scripts/rl_games/run_sea_state_robustness.py --profiles $PROFILES --checkpoint $TEACHER --policy_label teacher --profile frequency_shift_tp1p6_2p0 --seed 246 --num_envs 32 --episodes 64
+
+# Severe-profile physics checks used to rule out a motion/consistency bug.
+$PYTHON scripts/rl_games/check_sea_state_physics.py --num_envs=16 --profile frequency_shift_tp1p6_2p0 --seed=42 --headless --output benchmarks/sea_state/physics_frequency_boundary_16env.json
+$PYTHON scripts/rl_games/check_sea_state_physics.py --num_envs=16 --profile combined_high_tilt_very_high_rate --seed=42 --headless --output benchmarks/sea_state/physics_combined_boundary_16env.json
+
+# Realized-motion curves, failure analysis, and automatic profile-level boundary detection.
+$PYTHON scripts/rl_games/analyze_sea_state_robustness.py --profiles $PROFILES --input_glob 'benchmarks/sea_state/pilot_raw/teacher__*.csv'
+
+# Metric-selected actor-preserving checkpoints are read from:
+# benchmarks/actor_preserving_ppo/validation_selection.json
+# Their actor inputs were verified as 22-D. They are intentionally NOT evaluated here because
+# boundary_candidates.json reports no teacher profile-level robustness boundary.
+# Once a teacher candidate exists, use 64-128 episodes/checkpoint for lightweight validation, e.g.:
+# $PYTHON scripts/rl_games/run_sea_state_robustness.py --checkpoint <METRIC_SELECTED_CHECKPOINT> --policy_label metric_seed42 --actor_preserving --profile <BOUNDARY_PROFILE> --seed 245 --num_envs 32 --episodes 128
+
+# Preregistered formal protocol after the gate opens:
+# 3 metric-selected checkpoints x 3 eval seeds (245,246,247) x 256 episodes = 2304 episodes / condition.
+# See benchmarks/sea_state/formal_protocol.json. No PPO training is run by this benchmark study.
+
+# Final repository checks
+$PYTHON -m pytest -q tests
+git diff --check
+git status --short --branch
+git diff -- source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/quadrotor_ship_landing_physical_deck_attitude source/quadcopter_waypoint/quadcopter_waypoint/utils/physical_deck_attitude_math.py benchmarks/physical_deck_attitude benchmarks/actor_preserving_ppo

@@ -1,0 +1,24 @@
+{
+  "task_id": "Isaac-Quadcopter-ShipLanding-SeaState-Direct-v0",
+  "mode": "compatibility",
+  "num_envs": 16,
+  "observation_dimension": 22,
+  "action_dimension": 4,
+  "max_pose_abs_error": 0.0,
+  "max_velocity_abs_error": 0.0,
+  "max_roll_abs_error": 0.0,
+  "max_pitch_abs_error": 0.0,
+  "outcome_regression": {
+    "seed": 245,
+    "episodes_per_checkpoint": 32,
+    "teacher_original_settled": 1.0,
+    "teacher_compatibility_settled": 1.0,
+    "metric_seed42_original_settled": 0.875,
+    "metric_seed42_compatibility_settled": 0.875,
+    "metric_seed43_original_settled": 1.0,
+    "metric_seed43_compatibility_settled": 1.0,
+    "metric_seed44_original_settled": 0.9375,
+    "metric_seed44_compatibility_settled": 0.9375
+  },
+  "status": "PASS"
+}

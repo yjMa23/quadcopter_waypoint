@@ -1,0 +1,45 @@
+{
+  "status": "BLOCKED_NO_PROFILE_LEVEL_BOUNDARY",
+  "benchmark": "Sea-State Benchmark v1",
+  "reason": "Teacher pilot did not identify a repeatable factor-isolated profile with settled-landing rate below 95% while preserving the frozen safety envelope and avoiding scaling-dominated distributions.",
+  "nearest_transition_probe": {
+    "profile": "frequency_shift_tp1p6_2p0",
+    "teacher_eval_seeds": [245, 246],
+    "episodes_per_seed": 64,
+    "episodes": 128,
+    "settled_landing_rate": 0.96875,
+    "deck_miss_rate": 0.03125,
+    "hard_contact_rate": 0.0,
+    "dominant_motion_metric": "sea_deck_angular_speed_max",
+    "note": "The realized 0.08-0.12 rad/s bucket shows a degradation signal, but the complete profile does not meet the preregistered profile-level adaptation gate."
+  },
+  "actor_preserving_checkpoint_validation": {
+    "executed": false,
+    "reason": "Per protocol, actor-preserving checkpoints are evaluated only after the frozen teacher identifies a candidate boundary condition.",
+    "observation_dimension_verified": 22,
+    "metric_selected_checkpoints": {
+      "42": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed42/nn/actor_preserving_formal_lambda50.pth",
+      "43": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed43/nn/last_actor_preserving_formal_lambda50_ep_30_rew_63.345257.pth",
+      "44": "/home/j/Isaac_RL_Projects/quadcopter_waypoint/logs/rl_games/actor_preserving_formal_lambda50/seed44/nn/actor_preserving_formal_lambda50.pth"
+    }
+  },
+  "formal_evaluation_after_gate": {
+    "checkpoints": 3,
+    "eval_seeds": [245, 246, 247],
+    "episodes_per_checkpoint_seed": 256,
+    "episodes_per_condition": 2304,
+    "conditions": [
+      "selected_shifted_boundary_profile",
+      "Isaac-Quadcopter-ShipLanding-PhysicalDeckAttitude-Direct-v0 retention"
+    ],
+    "success_contract": "scripts/rl_games/eval_metrics.py",
+    "checkpoint_selection_source": "benchmarks/actor_preserving_ppo/validation_selection.json"
+  },
+  "adaptation_comparison_after_formal_boundary_confirmation": [
+    "frozen_policy",
+    "PPO_scratch",
+    "ordinary_PPO_fine_tuning",
+    "actor_preserving_PPO_fine_tuning"
+  ],
+  "training_executed_this_round": false
+}

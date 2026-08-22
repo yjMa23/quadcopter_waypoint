@@ -1,0 +1,45 @@
+{
+  "task_id": "Isaac-Quadcopter-ShipLanding-SeaState-Direct-v0",
+  "seed": 42,
+  "profile": "combined_high_tilt_very_high_rate",
+  "num_envs": 16,
+  "motion_steps": 500,
+  "step_dt": 0.02,
+  "sea_state": {
+    "hs_min": 0.16036972403526306,
+    "hs_max": 0.19715212285518646,
+    "tp_min": 2.0126543045043945,
+    "tp_max": 2.4984772205352783,
+    "gamma_min": 2.8168437480926514,
+    "gamma_max": 3.3883347511291504,
+    "heading_min_deg": -145.95593795902494,
+    "heading_max_deg": 162.92701827278233,
+    "heave_rms_max": 0.011942981742322445,
+    "heave_max_abs": 0.022534344345331192,
+    "roll_rms_max_deg": 1.7994165384910328,
+    "roll_max_abs_deg": 3.8972346503098136,
+    "pitch_rms_max_deg": 2.140825038258001,
+    "pitch_max_abs_deg": 3.484271167807088,
+    "linear_velocity_max": 0.2514922320842743,
+    "heave_velocity_max_abs": 0.05985506623983383,
+    "roll_rate_max_abs": 0.18407438695430756,
+    "pitch_rate_max_abs": 0.18029603362083435,
+    "deck_angular_speed_max": 0.20519787073135376,
+    "heave_scale_min": 1.0,
+    "roll_scale_min": 1.0,
+    "pitch_scale_min": 0.9774770140647888
+  },
+  "safety": {
+    "minimum_deck_bottom_corner_height": 0.24045978486537933,
+    "required_minimum_height": 0.05,
+    "max_step_position_delta": 0.005029757507145405,
+    "max_step_orientation_delta_deg": 0.23406786145283956
+  },
+  "consistency": {
+    "max_position_error": 0.0,
+    "max_orientation_error_deg": 0.03956468118525214,
+    "max_linear_velocity_error": 0.0,
+    "max_angular_velocity_error": 0.0
+  },
+  "status": "PASS"
+}

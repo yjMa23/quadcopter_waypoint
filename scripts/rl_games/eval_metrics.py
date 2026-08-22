@@ -195,6 +195,30 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             "_last_max_contact_impulse",
         )
     )
+    sea_state = (
+        physical_deck_attitude
+        and getattr(task_env.cfg, "sea_state_mode", None) == "stochastic"
+        and all(
+            hasattr(task_env, name)
+            for name in (
+                "_last_sea_hs",
+                "_last_sea_tp",
+                "_last_sea_gamma",
+                "_last_sea_heading",
+                "_last_sea_heave_scale",
+                "_last_sea_roll_scale",
+                "_last_sea_pitch_scale",
+                "_last_sea_heave_rms",
+                "_last_sea_roll_rms",
+                "_last_sea_pitch_rms",
+                "_last_sea_heave_max_abs",
+                "_last_sea_roll_max_abs",
+                "_last_sea_pitch_max_abs",
+                "_last_sea_heave_velocity_max_abs",
+                "_last_sea_deck_angular_speed_max",
+            )
+        )
+    )
     episode_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_strict_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
     episode_stable_hover = torch.zeros(num_envs, dtype=torch.bool, device=device)
@@ -388,6 +412,32 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                             deck_angular_speed_buckets = [
                                 deck_angular_speed_bucket(value) for value in first_contact_deck_angular_speeds
                             ]
+                            if sea_state:
+                                sea_hs = _tensor_to_float_list(task_env._last_sea_hs[done_ids])
+                                sea_tp = _tensor_to_float_list(task_env._last_sea_tp[done_ids])
+                                sea_gamma = _tensor_to_float_list(task_env._last_sea_gamma[done_ids])
+                                sea_heading = _tensor_to_float_list(task_env._last_sea_heading[done_ids])
+                                sea_heave_scale = _tensor_to_float_list(task_env._last_sea_heave_scale[done_ids])
+                                sea_roll_scale = _tensor_to_float_list(task_env._last_sea_roll_scale[done_ids])
+                                sea_pitch_scale = _tensor_to_float_list(task_env._last_sea_pitch_scale[done_ids])
+                                sea_heave_rms = _tensor_to_float_list(task_env._last_sea_heave_rms[done_ids])
+                                sea_roll_rms = _tensor_to_float_list(task_env._last_sea_roll_rms[done_ids])
+                                sea_pitch_rms = _tensor_to_float_list(task_env._last_sea_pitch_rms[done_ids])
+                                sea_heave_max_abs = _tensor_to_float_list(task_env._last_sea_heave_max_abs[done_ids])
+                                sea_roll_max_abs = _tensor_to_float_list(task_env._last_sea_roll_max_abs[done_ids])
+                                sea_pitch_max_abs = _tensor_to_float_list(task_env._last_sea_pitch_max_abs[done_ids])
+                                sea_heave_velocity_max_abs = _tensor_to_float_list(
+                                    task_env._last_sea_heave_velocity_max_abs[done_ids]
+                                )
+                                sea_roll_rate_max_abs = _tensor_to_float_list(
+                                    task_env._last_sea_roll_rate_max_abs[done_ids]
+                                )
+                                sea_pitch_rate_max_abs = _tensor_to_float_list(
+                                    task_env._last_sea_pitch_rate_max_abs[done_ids]
+                                )
+                                sea_deck_angular_speed_max = _tensor_to_float_list(
+                                    task_env._last_sea_deck_angular_speed_max[done_ids]
+                                )
                 else:
                     final_distances = _tensor_to_float_list(distance[done_ids])
                     min_distances = _tensor_to_float_list(episode_min_distance[done_ids])
@@ -493,6 +543,33 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                                         "max_deck_angular_velocity_consistency_error": max_deck_angular_velocity_errors[local_idx],
                                     }
                                 )
+                                if sea_state:
+                                    completed[-1].update(
+                                        {
+                                            "sea_hs": sea_hs[local_idx],
+                                            "sea_tp": sea_tp[local_idx],
+                                            "sea_gamma": sea_gamma[local_idx],
+                                            "sea_heading_rad": sea_heading[local_idx],
+                                            "sea_heave_scale": sea_heave_scale[local_idx],
+                                            "sea_roll_scale": sea_roll_scale[local_idx],
+                                            "sea_pitch_scale": sea_pitch_scale[local_idx],
+                                            "sea_min_scale": min(
+                                                sea_heave_scale[local_idx],
+                                                sea_roll_scale[local_idx],
+                                                sea_pitch_scale[local_idx],
+                                            ),
+                                            "sea_heave_rms": sea_heave_rms[local_idx],
+                                            "sea_roll_rms": sea_roll_rms[local_idx],
+                                            "sea_pitch_rms": sea_pitch_rms[local_idx],
+                                            "sea_heave_max_abs": sea_heave_max_abs[local_idx],
+                                            "sea_roll_max_abs": sea_roll_max_abs[local_idx],
+                                            "sea_pitch_max_abs": sea_pitch_max_abs[local_idx],
+                                            "sea_heave_velocity_max_abs": sea_heave_velocity_max_abs[local_idx],
+                                            "sea_roll_rate_max_abs": sea_roll_rate_max_abs[local_idx],
+                                            "sea_pitch_rate_max_abs": sea_pitch_rate_max_abs[local_idx],
+                                            "sea_deck_angular_speed_max": sea_deck_angular_speed_max[local_idx],
+                                        }
+                                    )
                     else:
                         completed.append({
                             "episode": len(completed),
