@@ -630,29 +630,37 @@ Combined representative shift
 
 ## 6. 当前唯一下一任务
 
-2026-08-23 已完成 PX4-Compatible Hierarchical RL action-interface 第一阶段：
+2026-08-23 已完成 PX4-Compatible Hierarchical RL 从 action-interface 到 PPO 前置证据的 Stage 0~2：
 
 ```text
-theory gate                         = PASS
-Reference Adapter unit tests        = PASS
-Vectorized PX4-like controller tests= PASS
-independent 3D-action task          = IMPLEMENTED
-1-env deterministic smoke           = PASS
-16-env GPU-vectorized smoke          = PASS
+theory gate                          = PASS
+Reference Adapter unit tests         = PASS
+Vectorized PX4-like controller tests = PASS
+independent 3D-action task           = IMPLEMENTED
+1-env deterministic smoke            = PASS
+16-env GPU-vectorized smoke           = PASS
+post-evaluator full regression        = 116 tests + 21 subtests PASS
+M2 evaluator terminal diagnostics     = IMPLEMENTED / TESTED
+16-env zero-relative-action baseline  = PASS
 ```
+
+Zero-action 四场景均表现为 `timeout=100%`、`contact=0`、`settled=0`、`hard_contact=0`、`ground_crash=0`、reference/controller saturation=0；因此该 baseline 只是 deck contact-point velocity following，不会自己完成下降与落地。
 
 证据入口：
 
 ```text
 docs/px4_compatible_hierarchical_rl_theory.md
 benchmarks/px4_hierarchical_smoke/
+benchmarks/px4_hierarchical_training/
 ```
 
-因此当前下一任务在预定义的两个候选中选择：
+当前唯一允许的下一步仍属于：
 
 > **A. train PX4-compatible hierarchical RL**
 
-选择 A 而不是先做 B（PX4 SITL）的原因是：当前 smoke 已证明 reference adapter、vectorized surrogate controller、25 Hz/100 Hz 分层频率和实体接触路径可稳定运行，但还没有一个训练后的 `22D → 3D velocity reference` policy 可供 SITL 集成。先完成 M2 的小规模 PPO sanity/tuning，再按统一 deterministic benchmark 形成正式 checkpoint；只有训练后 policy 通过仿真 gate，才进入 exported policy → PX4 SITL，并量化 surrogate controller mismatch。
+但现在进一步收紧为：先执行 `seed=42 / num_envs=64 / max_iterations=30` PPO sanity。只有 sanity 证明 reward 或 landing intermediate metrics 出现稳定、可解释改善，且 NaN/Inf=0、controller 无 explosion、saturation 不长期接近 100%、ground crash 不持续恶化，才允许进入 256-env / 100~200-iteration C0 candidate training。
+
+选择 A 而不是先做 B（PX4 SITL）的原因不变：当前接口、controller surrogate、25 Hz/100 Hz 分层频率、实体接触和 evaluator 已被验证，但仍没有经过学习门禁与 deterministic benchmark 选择的 `22D → 3D velocity reference` checkpoint。只有 M2 nominal benchmark PASS 后，才进入 exported policy → PX4 SITL 并量化 surrogate controller mismatch。
 
 仍禁止：
 

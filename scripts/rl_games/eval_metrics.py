@@ -21,8 +21,11 @@ from eval_metrics_utils import (
     DECK_ANGULAR_SPEED_BUCKETS,
     DECK_TILT_BUCKETS,
     PAD_SPEED_BUCKETS,
+    PX4_HIERARCHICAL_SCALAR_LATCHES,
+    PX4_HIERARCHICAL_VECTOR_LATCHES,
     deck_angular_speed_bucket,
     deck_tilt_bucket,
+    has_px4_hierarchical_diagnostics,
     mean_or_nan,
     pad_speed_bucket,
     percentile_or_nan,
@@ -118,6 +121,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     obs_groups = agent_cfg["params"]["env"].get("obs_groups")
     concate_obs_groups = agent_cfg["params"]["env"].get("concate_obs_groups", True)
 
+    # Formal M2 evaluation opts into synchronized controller wall-time measurement. Training keeps
+    # this disabled so the 100 Hz vectorized controller remains asynchronous on CUDA.
+    if hasattr(env_cfg, "controller_runtime_sync"):
+        env_cfg.controller_runtime_sync = True
+
     # create isaac environment
     raw_env = gym.make(args_cli.task, cfg=env_cfg)
 
@@ -195,6 +203,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             "_last_max_contact_impulse",
         )
     )
+    px4_hierarchical = physical_deck_attitude and has_px4_hierarchical_diagnostics(task_env)
     sea_state = (
         physical_deck_attitude
         and getattr(task_env.cfg, "sea_state_mode", None) == "stochastic"
@@ -412,6 +421,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                             deck_angular_speed_buckets = [
                                 deck_angular_speed_bucket(value) for value in first_contact_deck_angular_speeds
                             ]
+                            if px4_hierarchical:
+                                px4_scalar_values = {
+                                    key: _tensor_to_float_list(getattr(task_env, attr_name)[done_ids])
+                                    for key, attr_name in PX4_HIERARCHICAL_SCALAR_LATCHES.items()
+                                }
+                                px4_vector_values = {
+                                    key: getattr(task_env, attr_name)[done_ids].detach().cpu().tolist()
+                                    for key, attr_name in PX4_HIERARCHICAL_VECTOR_LATCHES.items()
+                                }
                             if sea_state:
                                 sea_hs = _tensor_to_float_list(task_env._last_sea_hs[done_ids])
                                 sea_tp = _tensor_to_float_list(task_env._last_sea_tp[done_ids])
@@ -543,6 +561,21 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                                         "max_deck_angular_velocity_consistency_error": max_deck_angular_velocity_errors[local_idx],
                                     }
                                 )
+                                if px4_hierarchical:
+                                    completed[-1].update(
+                                        {
+                                            key: values[local_idx]
+                                            for key, values in px4_scalar_values.items()
+                                        }
+                                    )
+                                    for statistic, values in px4_vector_values.items():
+                                        completed[-1].update(
+                                            {
+                                                f"action_t1_{statistic.removeprefix('action_')}": float(values[local_idx][0]),
+                                                f"action_t2_{statistic.removeprefix('action_')}": float(values[local_idx][1]),
+                                                f"action_normal_{statistic.removeprefix('action_')}": float(values[local_idx][2]),
+                                            }
+                                        )
                                 if sea_state:
                                     completed[-1].update(
                                         {
@@ -621,6 +654,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     def rate(key: str) -> float:
         return sum(1.0 for ep in completed if bool(ep[key])) / len(completed)
+
+    def maximum(key: str) -> float:
+        return max(float(ep[key]) for ep in completed)
 
     def success_values(key: str) -> list[float]:
         return [float(ep[key]) for ep in completed if bool(ep["success"])]
@@ -729,6 +765,44 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                     f"{max(float(ep['max_deck_linear_velocity_consistency_error']) for ep in completed):.6f} m/s, "
                     f"{max(float(ep['max_deck_angular_velocity_consistency_error']) for ep in completed):.6f} rad/s"
                 )
+                if px4_hierarchical:
+                    print("px4_hierarchical_diagnostics:")
+                    print(
+                        "  relative_velocity_reference_norm mean/P95/max: "
+                        f"{mean('relative_velocity_reference_norm_mean'):.4f} / "
+                        f"{mean('relative_velocity_reference_norm_p95'):.4f} / "
+                        f"{maximum('relative_velocity_reference_norm_max'):.4f} m/s"
+                    )
+                    print(f"  reference_saturation_ratio: {mean('reference_saturation_ratio'):.4f}")
+                    print(
+                        "  controller_velocity_tracking_error mean/max: "
+                        f"{mean('controller_velocity_tracking_error_mean'):.4f} / "
+                        f"{maximum('controller_velocity_tracking_error_max'):.4f} m/s"
+                    )
+                    for key in (
+                        "controller_acceleration_saturation_ratio",
+                        "controller_tilt_saturation_ratio",
+                        "controller_thrust_saturation_ratio",
+                        "controller_body_rate_saturation_ratio",
+                        "controller_moment_saturation_ratio",
+                    ):
+                        print(f"  {key}: {mean(key):.4f}")
+                    print(f"  max_desired_tilt: {math.degrees(maximum('max_desired_tilt')):.4f} deg")
+                    print(f"  max_body_rate: {maximum('max_body_rate'):.4f} rad/s")
+                    print(f"  max_moment: {maximum('max_moment'):.6f} N*m")
+                    print(
+                        "  controller_runtime mean/P95/max: "
+                        f"{mean('controller_runtime_ms_mean'):.4f} / "
+                        f"{mean('controller_runtime_ms_p95'):.4f} / "
+                        f"{maximum('controller_runtime_ms_max'):.4f} ms"
+                    )
+                    for axis in ("t1", "t2", "normal"):
+                        print(
+                            f"  action_{axis} mean/std/abs_max: "
+                            f"{mean(f'action_{axis}_mean'):.4f} / "
+                            f"{mean(f'action_{axis}_std'):.4f} / "
+                            f"{maximum(f'action_{axis}_abs_max'):.4f}"
+                        )
                 for label, bucket_names, field_name in (
                     ("deck_tilt_buckets", DECK_TILT_BUCKETS, "deck_tilt_bucket"),
                     (

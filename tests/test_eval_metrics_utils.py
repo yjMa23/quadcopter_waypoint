@@ -7,6 +7,7 @@ import importlib.util
 import math
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 
@@ -31,6 +32,23 @@ class EvalMetricsUtilsTest(unittest.TestCase):
     def test_terminal_latch_has_priority(self):
         self.assertEqual(metrics_utils.select_terminal_value(-0.21, 0.0, True), -0.21)
         self.assertEqual(metrics_utils.select_terminal_value(-0.21, 0.0, False), 0.0)
+
+    def test_px4_hierarchical_diagnostics_are_optional(self):
+        legacy_task = SimpleNamespace()
+        self.assertFalse(metrics_utils.has_px4_hierarchical_diagnostics(legacy_task))
+
+        m2_task = SimpleNamespace(
+            **{
+                attr_name: object()
+                for attr_name in (
+                    *metrics_utils.PX4_HIERARCHICAL_SCALAR_LATCHES.values(),
+                    *metrics_utils.PX4_HIERARCHICAL_VECTOR_LATCHES.values(),
+                )
+            }
+        )
+        self.assertTrue(metrics_utils.has_px4_hierarchical_diagnostics(m2_task))
+        delattr(m2_task, "_last_controller_runtime_ms_p95")
+        self.assertFalse(metrics_utils.has_px4_hierarchical_diagnostics(m2_task))
 
     def test_pad_speed_bucket_boundaries(self):
         cases = {

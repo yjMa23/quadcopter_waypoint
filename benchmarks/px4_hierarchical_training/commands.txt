@@ -1,0 +1,15 @@
+# Environment
+source /home/j/anaconda3/etc/profile.d/conda.sh
+conda activate env_isaaclab
+export PYTHONPATH=source/quadcopter_waypoint
+
+# Stage 0 regression
+python -m pytest -q tests
+python scripts/rl_games/check_px4_hierarchical_smoke.py --num_envs 1 --headless
+python scripts/rl_games/check_px4_hierarchical_smoke.py --num_envs 16 --headless
+
+# Stage 2 deterministic zero-relative-action baseline
+python scripts/rl_games/eval_px4_hierarchical_zero_action.py --num_envs 16 --episodes_per_case 16 --headless
+
+# Stage 3 PPO sanity (run only after Stage 0-2 PASS)
+python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=42 --headless --max_iterations=30

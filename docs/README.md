@@ -16,6 +16,7 @@
 | `imitation_hybrid_interview_evidence.md` | imitation-learning benchmark 面试表述、数据证据、失败归因和可使用结论 |
 | `../benchmarks/checkpoint_selection/README.md` | checkpoint-selection analysis 原始 benchmark、命令与图表入口 |
 | `../benchmarks/px4_hierarchical_smoke/README.md` | PX4-compatible hierarchical action/controller 的 1/16-env 确定性 smoke、命令与首轮 PASS 证据；不是训练后策略结果 |
+| `../benchmarks/px4_hierarchical_training/README.md` | M2 PPO 证据链：evaluator diagnostics、deterministic zero-relative-action baseline、sanity/candidate training、validation 与 checkpoint hash |
 | `runtime_display_troubleshooting.md` | Isaac Sim 默认 display、GUI、SSH、tmux、Docker 和 headless 视频说明 |
 
 ## 文档与代码同步

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import torch
 
@@ -53,6 +54,9 @@ class QuadcopterShipLandingPx4HierarchicalEnvCfg(QuadcopterShipLandingPhysicalDe
     controller_rate_gain = (12.0, 12.0, 8.0)
     controller_max_moment = (0.01, 0.01, 0.01)
     controller_yaw_ref_enu = 0.0
+    # Formal evaluator/benchmark can enable synchronized wall-time measurement. Keep it disabled for
+    # training so diagnostics do not serialize every CUDA physics substep.
+    controller_runtime_sync = False
 
 
 class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckAttitudeEnv):
@@ -107,6 +111,61 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
         self._reference_saturated = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self._last_controller_diagnostics: dict[str, torch.Tensor] = {}
 
+        # Episode-level M2 diagnostics are accumulated inside the environment and latched before reset.
+        # This avoids evaluator races with DirectRLEnv's automatic reset and keeps M0/M1 untouched.
+        self._episode_reference_step_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_reference_norm_sum = torch.zeros(self.num_envs, device=self.device)
+        self._episode_reference_norm_max = torch.zeros(self.num_envs, device=self.device)
+        self._episode_reference_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_action_sum = torch.zeros(self.num_envs, 3, device=self.device)
+        self._episode_action_square_sum = torch.zeros(self.num_envs, 3, device=self.device)
+        self._episode_action_abs_max = torch.zeros(self.num_envs, 3, device=self.device)
+        self._reference_norm_samples = torch.zeros(
+            self.num_envs, self.max_episode_length, device=self.device
+        )
+
+        self._episode_controller_step_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_velocity_tracking_error_sum = torch.zeros(self.num_envs, device=self.device)
+        self._episode_velocity_tracking_error_max = torch.zeros(self.num_envs, device=self.device)
+        self._episode_acceleration_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_tilt_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_thrust_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_body_rate_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_moment_saturated_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_max_desired_tilt = torch.zeros(self.num_envs, device=self.device)
+        self._episode_max_body_rate = torch.zeros(self.num_envs, device=self.device)
+        self._episode_max_moment = torch.zeros(self.num_envs, device=self.device)
+        self._episode_controller_runtime_ms_sum = torch.zeros(self.num_envs, device=self.device)
+        self._episode_controller_runtime_ms_max = torch.zeros(self.num_envs, device=self.device)
+        self._controller_runtime_sample_capacity = self.max_episode_length * self.cfg.decimation
+        self._controller_runtime_ms_samples = torch.zeros(
+            self.num_envs, self._controller_runtime_sample_capacity, device=self.device
+        )
+
+        for name in (
+            "_last_relative_velocity_reference_norm_mean",
+            "_last_relative_velocity_reference_norm_p95",
+            "_last_relative_velocity_reference_norm_max",
+            "_last_reference_saturation_ratio",
+            "_last_controller_velocity_tracking_error_mean",
+            "_last_controller_velocity_tracking_error_max",
+            "_last_controller_acceleration_saturation_ratio",
+            "_last_controller_tilt_saturation_ratio",
+            "_last_controller_thrust_saturation_ratio",
+            "_last_controller_body_rate_saturation_ratio",
+            "_last_controller_moment_saturation_ratio",
+            "_last_max_desired_tilt",
+            "_last_max_body_rate",
+            "_last_max_moment",
+            "_last_controller_runtime_ms_mean",
+            "_last_controller_runtime_ms_p95",
+            "_last_controller_runtime_ms_max",
+        ):
+            setattr(self, name, torch.zeros(self.num_envs, device=self.device))
+        self._last_action_mean = torch.zeros(self.num_envs, 3, device=self.device)
+        self._last_action_std = torch.zeros(self.num_envs, 3, device=self.device)
+        self._last_action_abs_max = torch.zeros(self.num_envs, 3, device=self.device)
+
         self._target_contact_point_d = torch.zeros(self.num_envs, 3, device=self.device)
         self._target_contact_point_d[:, 2] = 0.5 * self.cfg.pad_thickness
 
@@ -115,6 +174,81 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
         body_inertias = self._robot.root_physx_view.get_inertias()[:, self._body_id, :]
         self._robot_inertia_b = body_inertias.reshape(self.num_envs, len(self._body_id), 3, 3)[:, 0].to(
             device=self.device, dtype=self._robot.data.root_quat_w.dtype
+        )
+
+    @staticmethod
+    def _episode_percentile(
+        samples: torch.Tensor,
+        counts: torch.Tensor,
+        env_ids: torch.Tensor,
+        percentile: float,
+    ) -> torch.Tensor:
+        """Compute an exact linearly interpolated percentile over each selected episode row."""
+        selected_counts = counts[env_ids]
+        selected_samples = samples[env_ids]
+        positions = torch.arange(samples.shape[1], device=samples.device).unsqueeze(0)
+        valid = positions < selected_counts.unsqueeze(1)
+        masked = torch.where(valid, selected_samples, torch.full_like(selected_samples, float("inf")))
+        ordered = torch.sort(masked, dim=1).values
+        nonempty_counts = selected_counts.clamp_min(1)
+        quantile_position = (nonempty_counts.float() - 1.0) * percentile
+        lower = torch.floor(quantile_position).long()
+        upper = torch.ceil(quantile_position).long()
+        weight = quantile_position - lower.float()
+        lower_values = ordered.gather(1, lower.unsqueeze(1)).squeeze(1)
+        upper_values = ordered.gather(1, upper.unsqueeze(1)).squeeze(1)
+        values = lower_values * (1.0 - weight) + upper_values * weight
+        return torch.where(selected_counts > 0, values, torch.zeros_like(values))
+
+    def _record_reference_diagnostics(self, actions: torch.Tensor) -> None:
+        reference_norm = torch.linalg.norm(self._relative_velocity_ref_d, dim=-1)
+        sample_index = self._episode_reference_step_count
+        valid = sample_index < self._reference_norm_samples.shape[1]
+        valid_ids = torch.nonzero(valid, as_tuple=False).squeeze(-1)
+        if valid_ids.numel() > 0:
+            self._reference_norm_samples[valid_ids, sample_index[valid_ids]] = reference_norm[valid_ids]
+        self._episode_reference_step_count += 1
+        self._episode_reference_norm_sum += reference_norm
+        self._episode_reference_norm_max = torch.maximum(self._episode_reference_norm_max, reference_norm)
+        self._episode_reference_saturated_count += self._reference_saturated.long()
+        self._episode_action_sum += actions
+        self._episode_action_square_sum += actions.square()
+        self._episode_action_abs_max = torch.maximum(self._episode_action_abs_max, torch.abs(actions))
+
+    def _record_controller_diagnostics(
+        self,
+        diagnostics: dict[str, torch.Tensor],
+        moment_b: torch.Tensor,
+        runtime_ms: float,
+    ) -> None:
+        sample_index = self._episode_controller_step_count
+        valid = sample_index < self._controller_runtime_ms_samples.shape[1]
+        valid_ids = torch.nonzero(valid, as_tuple=False).squeeze(-1)
+        if valid_ids.numel() > 0:
+            self._controller_runtime_ms_samples[valid_ids, sample_index[valid_ids]] = runtime_ms
+
+        velocity_tracking_error = torch.linalg.norm(diagnostics["velocity_error_w"], dim=-1)
+        body_rate = torch.linalg.norm(self._robot.data.root_ang_vel_b, dim=-1)
+        moment = torch.linalg.norm(moment_b, dim=-1)
+        self._episode_controller_step_count += 1
+        self._episode_velocity_tracking_error_sum += velocity_tracking_error
+        self._episode_velocity_tracking_error_max = torch.maximum(
+            self._episode_velocity_tracking_error_max, velocity_tracking_error
+        )
+        self._episode_acceleration_saturated_count += diagnostics["acceleration_saturated"].long()
+        self._episode_tilt_saturated_count += diagnostics["tilt_saturated"].long()
+        self._episode_thrust_saturated_count += diagnostics["thrust_saturated"].long()
+        self._episode_body_rate_saturated_count += diagnostics["body_rate_saturated"].long()
+        self._episode_moment_saturated_count += diagnostics["moment_saturated"].long()
+        self._episode_max_desired_tilt = torch.maximum(
+            self._episode_max_desired_tilt, diagnostics["desired_tilt_rad"]
+        )
+        self._episode_max_body_rate = torch.maximum(self._episode_max_body_rate, body_rate)
+        self._episode_max_moment = torch.maximum(self._episode_max_moment, moment)
+        self._episode_controller_runtime_ms_sum += runtime_ms
+        self._episode_controller_runtime_ms_max = torch.maximum(
+            self._episode_controller_runtime_ms_max,
+            torch.full_like(self._episode_controller_runtime_ms_max, runtime_ms),
         )
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -159,8 +293,13 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             | (self._relative_velocity_ref_d[:, 2] <= self.cfg.relative_velocity_min[2] + 1.0e-6)
             | (self._relative_velocity_ref_d[:, 2] >= self.cfg.relative_velocity_max[2] - 1.0e-6)
         )
+        self._record_reference_diagnostics(actions)
 
     def _apply_action(self) -> None:
+        sync_runtime = self.cfg.controller_runtime_sync and str(self.device).startswith("cuda")
+        if sync_runtime:
+            torch.cuda.synchronize()
+        start = time.perf_counter()
         thrust_b, moment_b, diagnostics = self._px4_like_controller.compute(
             velocity_reference_w=self._velocity_reference_w,
             current_velocity_w=self._robot.data.root_lin_vel_w,
@@ -170,12 +309,70 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             inertia_b=self._robot_inertia_b,
             gravity_magnitude=self._gravity_magnitude,
         )
+        if sync_runtime:
+            torch.cuda.synchronize()
+        runtime_ms = 1000.0 * (time.perf_counter() - start)
         self._thrust[:, 0, :] = thrust_b
         self._moment[:, 0, :] = moment_b
         self._last_controller_diagnostics = diagnostics
+        self._record_controller_diagnostics(diagnostics, moment_b, runtime_ms)
         self._robot.permanent_wrench_composer.set_forces_and_torques(
             body_ids=self._body_id, forces=self._thrust, torques=self._moment
         )
+
+    def _latch_terminal_state(self, env_ids: torch.Tensor) -> None:
+        super()._latch_terminal_state(env_ids)
+        # Parent construction can call reset before the M2-only buffers are allocated.
+        if not hasattr(self, "_episode_reference_step_count"):
+            return
+
+        reference_steps = self._episode_reference_step_count[env_ids].clamp_min(1)
+        controller_steps = self._episode_controller_step_count[env_ids].clamp_min(1)
+        self._last_relative_velocity_reference_norm_mean[env_ids] = (
+            self._episode_reference_norm_sum[env_ids] / reference_steps
+        )
+        self._last_relative_velocity_reference_norm_p95[env_ids] = self._episode_percentile(
+            self._reference_norm_samples,
+            self._episode_reference_step_count,
+            env_ids,
+            0.95,
+        )
+        self._last_relative_velocity_reference_norm_max[env_ids] = self._episode_reference_norm_max[env_ids]
+        self._last_reference_saturation_ratio[env_ids] = (
+            self._episode_reference_saturated_count[env_ids].float() / reference_steps
+        )
+
+        action_mean = self._episode_action_sum[env_ids] / reference_steps.unsqueeze(1)
+        action_second_moment = self._episode_action_square_sum[env_ids] / reference_steps.unsqueeze(1)
+        self._last_action_mean[env_ids] = action_mean
+        self._last_action_std[env_ids] = torch.sqrt(torch.clamp(action_second_moment - action_mean.square(), min=0.0))
+        self._last_action_abs_max[env_ids] = self._episode_action_abs_max[env_ids]
+
+        self._last_controller_velocity_tracking_error_mean[env_ids] = (
+            self._episode_velocity_tracking_error_sum[env_ids] / controller_steps
+        )
+        self._last_controller_velocity_tracking_error_max[env_ids] = self._episode_velocity_tracking_error_max[env_ids]
+        for target, count in (
+            (self._last_controller_acceleration_saturation_ratio, self._episode_acceleration_saturated_count),
+            (self._last_controller_tilt_saturation_ratio, self._episode_tilt_saturated_count),
+            (self._last_controller_thrust_saturation_ratio, self._episode_thrust_saturated_count),
+            (self._last_controller_body_rate_saturation_ratio, self._episode_body_rate_saturated_count),
+            (self._last_controller_moment_saturation_ratio, self._episode_moment_saturated_count),
+        ):
+            target[env_ids] = count[env_ids].float() / controller_steps
+        self._last_max_desired_tilt[env_ids] = self._episode_max_desired_tilt[env_ids]
+        self._last_max_body_rate[env_ids] = self._episode_max_body_rate[env_ids]
+        self._last_max_moment[env_ids] = self._episode_max_moment[env_ids]
+        self._last_controller_runtime_ms_mean[env_ids] = (
+            self._episode_controller_runtime_ms_sum[env_ids] / controller_steps
+        )
+        self._last_controller_runtime_ms_p95[env_ids] = self._episode_percentile(
+            self._controller_runtime_ms_samples,
+            self._episode_controller_step_count,
+            env_ids,
+            0.95,
+        )
+        self._last_controller_runtime_ms_max[env_ids] = self._episode_controller_runtime_ms_max[env_ids]
 
     def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
         # During DirectRLEnv construction this override can be reached before the hierarchical buffers
@@ -185,9 +382,68 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             return
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self._robot._ALL_INDICES
+
+        completed = self._episode_reference_step_count[env_ids] > 0
+        if torch.any(completed):
+            completed_ids = env_ids[completed]
+            log = self.extras.setdefault("log", {})
+            log["Metrics/m2_relative_velocity_reference_norm_mean"] = self._last_relative_velocity_reference_norm_mean[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_reference_saturation_ratio"] = self._last_reference_saturation_ratio[completed_ids].mean().item()
+            log["Metrics/m2_controller_velocity_tracking_error_mean"] = self._last_controller_velocity_tracking_error_mean[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_controller_acceleration_saturation_ratio"] = self._last_controller_acceleration_saturation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_controller_tilt_saturation_ratio"] = self._last_controller_tilt_saturation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_controller_thrust_saturation_ratio"] = self._last_controller_thrust_saturation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_controller_body_rate_saturation_ratio"] = self._last_controller_body_rate_saturation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_controller_moment_saturation_ratio"] = self._last_controller_moment_saturation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_settled_landing_rate"] = self._last_successful_settle[completed_ids].float().mean().item()
+            log["Metrics/m2_hard_contact_rate"] = self._last_hard_contact[completed_ids].float().mean().item()
+            log["Metrics/m2_ground_crash_rate"] = self._last_ground_crash[completed_ids].float().mean().item()
+            log["Metrics/m2_deck_miss_rate"] = self._last_deck_miss[completed_ids].float().mean().item()
+            for axis, label in enumerate(("t1", "t2", "normal")):
+                log[f"Metrics/m2_action_{label}_mean"] = self._last_action_mean[completed_ids, axis].mean().item()
+                log[f"Metrics/m2_action_{label}_std"] = self._last_action_std[completed_ids, axis].mean().item()
+
         self._previous_relative_velocity_ref_d[env_ids] = 0.0
         self._relative_velocity_ref_d[env_ids] = 0.0
         self._deck_contact_velocity_ref_w[env_ids] = 0.0
         self._velocity_reference_w[env_ids] = 0.0
         self._velocity_reference_ned[env_ids] = 0.0
         self._reference_saturated[env_ids] = False
+
+        for buffer in (
+            self._episode_reference_step_count,
+            self._episode_reference_norm_sum,
+            self._episode_reference_norm_max,
+            self._episode_reference_saturated_count,
+            self._episode_controller_step_count,
+            self._episode_velocity_tracking_error_sum,
+            self._episode_velocity_tracking_error_max,
+            self._episode_acceleration_saturated_count,
+            self._episode_tilt_saturated_count,
+            self._episode_thrust_saturated_count,
+            self._episode_body_rate_saturated_count,
+            self._episode_moment_saturated_count,
+            self._episode_max_desired_tilt,
+            self._episode_max_body_rate,
+            self._episode_max_moment,
+            self._episode_controller_runtime_ms_sum,
+            self._episode_controller_runtime_ms_max,
+        ):
+            buffer[env_ids] = 0
+        self._episode_action_sum[env_ids] = 0.0
+        self._episode_action_square_sum[env_ids] = 0.0
+        self._episode_action_abs_max[env_ids] = 0.0

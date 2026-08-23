@@ -13,6 +13,37 @@ PAD_SPEED_BUCKETS = ("0.00-0.05", "0.05-0.10", "0.10-0.15", ">=0.15")
 DECK_TILT_BUCKETS = ("0-2deg", "2-4deg", "4-6deg", ">=6deg")
 DECK_ANGULAR_SPEED_BUCKETS = ("0.00-0.04", "0.04-0.08", "0.08-0.12", ">=0.12")
 
+PX4_HIERARCHICAL_SCALAR_LATCHES = {
+    "relative_velocity_reference_norm_mean": "_last_relative_velocity_reference_norm_mean",
+    "relative_velocity_reference_norm_p95": "_last_relative_velocity_reference_norm_p95",
+    "relative_velocity_reference_norm_max": "_last_relative_velocity_reference_norm_max",
+    "reference_saturation_ratio": "_last_reference_saturation_ratio",
+    "controller_velocity_tracking_error_mean": "_last_controller_velocity_tracking_error_mean",
+    "controller_velocity_tracking_error_max": "_last_controller_velocity_tracking_error_max",
+    "controller_acceleration_saturation_ratio": "_last_controller_acceleration_saturation_ratio",
+    "controller_tilt_saturation_ratio": "_last_controller_tilt_saturation_ratio",
+    "controller_thrust_saturation_ratio": "_last_controller_thrust_saturation_ratio",
+    "controller_body_rate_saturation_ratio": "_last_controller_body_rate_saturation_ratio",
+    "controller_moment_saturation_ratio": "_last_controller_moment_saturation_ratio",
+    "max_desired_tilt": "_last_max_desired_tilt",
+    "max_body_rate": "_last_max_body_rate",
+    "max_moment": "_last_max_moment",
+    "controller_runtime_ms_mean": "_last_controller_runtime_ms_mean",
+    "controller_runtime_ms_p95": "_last_controller_runtime_ms_p95",
+    "controller_runtime_ms_max": "_last_controller_runtime_ms_max",
+}
+PX4_HIERARCHICAL_VECTOR_LATCHES = {
+    "action_mean": "_last_action_mean",
+    "action_std": "_last_action_std",
+    "action_abs_max": "_last_action_abs_max",
+}
+
+
+def has_px4_hierarchical_diagnostics(task: Any) -> bool:
+    """Return whether ``task`` exposes the complete optional M2 terminal diagnostic contract."""
+    latch_names = tuple(PX4_HIERARCHICAL_SCALAR_LATCHES.values()) + tuple(PX4_HIERARCHICAL_VECTOR_LATCHES.values())
+    return all(hasattr(task, name) for name in latch_names)
+
 
 def pad_speed_bucket(pad_speed: float) -> str:
     """Return the half-open horizontal pad-speed bucket containing ``pad_speed``."""

@@ -1211,3 +1211,98 @@ policy 直接表达“相对甲板怎么运动”，并通过 v_contact + R_WD v
 为什么训练不用 full PX4 SITL：
 大规模环境需要 GPU vectorization；per-env SITL 会破坏训练吞吐和复杂度。训练用最小 PX4-like surrogate，SITL/HIL/实机只做后续少量高保真验证。
 ```
+
+---
+
+# 17. M2 PPO evidence gate
+
+2026-08-23 在 action-interface baseline `ca974ee5118f8742af69a698a1c47a96aa7d0a9f` 之后，M2 正式进入 PPO 前证据门禁。顺序固定为：
+
+```text
+regression
+→ evaluator completeness
+→ deterministic zero-relative-action baseline
+→ 64-env / seed-42 / 30-iteration PPO sanity
+→ diagnosis
+→ only-if-pass small candidate training
+```
+
+## 17.1 Episode diagnostics contract
+
+M2 环境必须在自动 reset 之前累计并冻结：
+
+```text
+relative_velocity_reference_norm mean/P95/max
+reference_saturation_ratio
+controller_velocity_tracking_error mean/max
+controller_acceleration_saturation_ratio
+controller_tilt_saturation_ratio
+controller_thrust_saturation_ratio
+controller_body_rate_saturation_ratio
+controller_moment_saturation_ratio
+max_desired_tilt
+max_body_rate
+max_moment
+controller_runtime mean/P95/max
+normalized action mean/std/abs-max per axis
+```
+
+`eval_metrics.py` 只有在 task 暴露完整 optional M2 latch contract 时才追加这些字段；M0/M1 不进入该分支，因此历史 CSV 字段和成功定义保持不变。正式 evaluator 可开启同步 CUDA wall-time 测量；PPO training 默认不执行每个 100 Hz substep 的 CUDA synchronize，避免 diagnostics 人为串行化训练。
+
+## 17.2 Zero-relative-action baseline
+
+定义：
+
+```text
+normalized action = [0, 0, 0]
+→ v_rel_ref^D = 0
+→ v_uav_ref^W = v_contact^W
+```
+
+因此它是 **deck contact-point velocity following baseline**，不是零推力，也不是 RL 方法。
+
+16-env deterministic baseline 在四个场景：
+
+```text
+static deck
+constant XY deck
+heave deck
+physical-deck-attitude
+```
+
+均得到：
+
+```text
+timeout rate = 1.0
+contact rate = 0
+settled landing rate = 0
+hard contact rate = 0
+ground crash rate = 0
+deck miss rate = 0
+relative velocity reference norm = 0
+reference saturation = 0
+all controller saturation ratios = 0
+NaN/Inf = 0
+```
+
+其中 controller velocity tracking error mean 分别约为 `0.00394 / 0.00394 / 0.01077 / 0.00898 m/s`。该结果证明：零相对速度 reference 能稳定跟随甲板运动，但不会主动完成 normal descent；后续 policy 的 horizontal correction、下降与 touchdown timing 必须由 PPO 学得。
+
+证据：
+
+```text
+benchmarks/px4_hierarchical_training/zero_action_16env.json
+```
+
+## 17.3 PPO sanity pass/fail rule
+
+30-iteration sanity 不要求达到 95% settled landing，只要求证明 policy is learning。至少检查：
+
+```text
+NaN/Inf = 0
+controller no explosion
+reference/controller saturation not persistently near 100%
+reward trend or landing intermediate metrics clearly improve
+ground crash does not keep worsening
+```
+
+若不满足，必须按 reference → controller tracking → action scaling → reward gradient 的顺序诊断，并停止扩大训练迭代数。

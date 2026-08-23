@@ -135,7 +135,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 | checkpoint 选模与 policy drift | `docs/checkpoint_selection_and_policy_drift.md` |
 | actor-preserving PPO | `docs/actor_preserving_ppo.md` |
 | stochastic Sea-State benchmark | `docs/sea_state_benchmark.md` |
-| PX4-compatible hierarchical RL | `docs/px4_compatible_hierarchical_rl_theory.md`、`benchmarks/px4_hierarchical_smoke/` |
+| PX4-compatible hierarchical RL | `docs/px4_compatible_hierarchical_rl_theory.md`、`benchmarks/px4_hierarchical_smoke/`、`benchmarks/px4_hierarchical_training/` |
 | 文献综述与研究路线 | `docs/literature_review_ship_landing_rl.md`、`docs/literature_comparison_matrix.md` |
 | benchmark 数据 | `benchmarks/` |
 
@@ -154,7 +154,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 - 扩大 Sea-State zero-shot 多 seed 评估，并在安全 envelope 内确定可复现的 distribution-shift degradation boundary。
 - 加入动力学随机化，并用实测数据完成系统辨识。
 - 接入 ArUco 相对状态估计，建模噪声、延迟、丢帧和状态历史。
-- 训练并正式评估 PX4-compatible hierarchical RL；当前仅完成 action/controller smoke，不把 smoke 当作 PPO 成功率结果。
+- 继续训练并正式评估 PX4-compatible hierarchical RL；当前已完成 action/controller smoke、M2 evaluator 与 deterministic zero-action baseline，下一门禁是 64-env / seed-42 / 30-iteration PPO sanity。
 - hierarchical policy 通过正式仿真 gate 后，再把导出策略接入 PX4 SITL，量化 surrogate→PX4 controller mismatch。
 - 建立 PID 与 NMPC baseline，统一成功定义和评估预算后比较。
 - 推进 Sim-to-Real；完成状态策略实机验证后，再研究后续视觉策略。
