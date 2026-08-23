@@ -20,6 +20,21 @@ actor: 22 -> 64 -> 64 -> 4, ELU
 
 当前策略是 state-based policy，输入包含无人机与甲板的相对状态，不包含相机图像或真实视觉投影。
 
+同时已新增一个**独立、尚未正式训练**的 PX4-compatible hierarchical 方法：
+
+```text
+Task ID: Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0
+22-D observation
+→ 3-D normalized deck-relative velocity action [v_t1_rel, v_t2_rel, v_n_rel]
+→ PX4-compatible Reference Adapter
+→ 25 Hz world/ENU velocity reference
+→ 100 Hz VectorizedPx4LikeController
+→ thrust + moment
+→ Isaac Lab dynamics
+```
+
+其 deployment contract 直接对应 `PX4 Offboard velocity + TrajectorySetpoint.velocity`；训练 backend 不依赖 ROS2/PX4，且 `VectorizedPx4LikeController != real PX4`。该方法不修改、不废弃现有 22D→4D Direct RL，也禁止把旧 Direct checkpoint 解释为 3D velocity policy。理论与第一轮 smoke 证据见 `docs/px4_compatible_hierarchical_rl_theory.md` 和 `benchmarks/px4_hierarchical_smoke/`。
+
 actor-preserving PPO 使用独立 actor/critic：前 10 个 epoch 只更新 critic，之后联合训练；observation RMS 全程冻结，BC actor 通过 `bc_anchor_coefficient=50` 约束。训练 seed 为 42/43/44，validation seed 为 145/146/147，最终 test seed 为 245/246/247。
 
 冻结 teacher：
@@ -120,6 +135,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 | checkpoint 选模与 policy drift | `docs/checkpoint_selection_and_policy_drift.md` |
 | actor-preserving PPO | `docs/actor_preserving_ppo.md` |
 | stochastic Sea-State benchmark | `docs/sea_state_benchmark.md` |
+| PX4-compatible hierarchical RL | `docs/px4_compatible_hierarchical_rl_theory.md`、`benchmarks/px4_hierarchical_smoke/` |
 | 文献综述与研究路线 | `docs/literature_review_ship_landing_rl.md`、`docs/literature_comparison_matrix.md` |
 | benchmark 数据 | `benchmarks/` |
 
@@ -138,5 +154,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 - 扩大 Sea-State zero-shot 多 seed 评估，并在安全 envelope 内确定可复现的 distribution-shift degradation boundary。
 - 加入动力学随机化，并用实测数据完成系统辨识。
 - 接入 ArUco 相对状态估计，建模噪声、延迟、丢帧和状态历史。
+- 训练并正式评估 PX4-compatible hierarchical RL；当前仅完成 action/controller smoke，不把 smoke 当作 PPO 成功率结果。
+- hierarchical policy 通过正式仿真 gate 后，再把导出策略接入 PX4 SITL，量化 surrogate→PX4 controller mismatch。
 - 建立 PID 与 NMPC baseline，统一成功定义和评估预算后比较。
 - 推进 Sim-to-Real；完成状态策略实机验证后，再研究后续视觉策略。

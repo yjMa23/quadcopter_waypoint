@@ -11,9 +11,11 @@
 | `checkpoint_selection_and_policy_drift.md` | checkpoint-selection analysis 周期 checkpoint 选模、独立测试和 policy drift 理论说明 |
 | `actor_preserving_ppo.md` | actor-preserving PPO 设计、预注册、实现映射与结果回填主文档 |
 | `sea_state_benchmark.md` | 独立 stochastic Sea-State benchmark：JONSWAP、surrogate vessel response、解析运动、安全 envelope、compatibility regression 与 zero-shot protocol |
-| `RL_LONG_TERM_ROADMAP.md` | RL 研究长期路线：冻结基线、Sea-State 鲁棒边界、distribution-shift adaptation、感知退化、分层 RL、selective dynamics randomization、PX4/HIL 与论文正式指标 |
+| `px4_compatible_hierarchical_rl_theory.md` | PX4-compatible hierarchical RL 理论与实现门禁：3D deck-relative velocity action、contact-point feedforward、ENU/NED、vectorized PX4-like controller、Offboard velocity deployment、安全与 smoke protocol |
+| `RL_LONG_TERM_ROADMAP.md` | RL 研究长期路线：冻结基线、Sea-State 鲁棒边界、distribution-shift adaptation、感知退化、PX4-compatible 分层 RL、selective dynamics randomization、PX4/HIL 与论文正式指标 |
 | `imitation_hybrid_interview_evidence.md` | imitation-learning benchmark 面试表述、数据证据、失败归因和可使用结论 |
 | `../benchmarks/checkpoint_selection/README.md` | checkpoint-selection analysis 原始 benchmark、命令与图表入口 |
+| `../benchmarks/px4_hierarchical_smoke/README.md` | PX4-compatible hierarchical action/controller 的 1/16-env 确定性 smoke、命令与首轮 PASS 证据；不是训练后策略结果 |
 | `runtime_display_troubleshooting.md` | Isaac Sim 默认 display、GUI、SSH、tmux、Docker 和 headless 视频说明 |
 
 ## 文档与代码同步

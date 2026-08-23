@@ -1,0 +1,88 @@
+{
+  "task_id": "Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0",
+  "date": "2026-08-23",
+  "num_envs": 16,
+  "physics_hz": 100,
+  "policy_hz": 25,
+  "purpose": "deterministic action-interface/controller smoke only; not a trained-policy benchmark",
+  "cases": [
+    {
+      "name": "static_hover",
+      "steps": 100,
+      "max_relative_position_drift_m": 0.0382501482963562,
+      "max_velocity_tracking_error_mps": 0.08865176141262054,
+      "max_desired_tilt_deg": 0.0,
+      "max_body_rate_radps": 6.184395147101895e-07,
+      "max_moment_nm": 1.199566279641573e-10,
+      "reference_saturation_ratio": 0.0,
+      "controller_saturation_ratio": 0.0,
+      "ground_crash": false,
+      "nonfinite": false,
+      "controller_runtime_ms_mean": 1.9460494763916358,
+      "controller_runtime_ms_max": 61.13797193393111
+    },
+    {
+      "name": "constant_xy_deck",
+      "steps": 100,
+      "max_relative_position_drift_m": 5.556994437938556e-05,
+      "max_velocity_tracking_error_mps": 2.175971900442164e-07,
+      "max_desired_tilt_deg": 0.0,
+      "max_body_rate_radps": 1.8601214833324775e-05,
+      "max_moment_nm": 3.584434526970881e-09,
+      "reference_saturation_ratio": 0.0,
+      "controller_saturation_ratio": 0.0,
+      "ground_crash": false,
+      "nonfinite": false,
+      "controller_runtime_ms_mean": 1.7896886554080993,
+      "controller_runtime_ms_max": 3.1827010679990053
+    },
+    {
+      "name": "heave_deck",
+      "steps": 100,
+      "max_relative_position_drift_m": 0.030209004878997803,
+      "max_velocity_tracking_error_mps": 0.011506565846502781,
+      "max_desired_tilt_deg": 0.0,
+      "max_body_rate_radps": 2.8743212965309795e-07,
+      "max_moment_nm": 5.633422200945759e-11,
+      "reference_saturation_ratio": 0.0,
+      "controller_saturation_ratio": 0.0,
+      "ground_crash": false,
+      "nonfinite": false,
+      "controller_runtime_ms_mean": 1.788169444189407,
+      "controller_runtime_ms_max": 3.0834500212222338
+    },
+    {
+      "name": "physical_deck_attitude",
+      "steps": 100,
+      "max_relative_position_drift_m": 0.022747933864593506,
+      "max_velocity_tracking_error_mps": 0.008632520213723183,
+      "max_desired_tilt_deg": 0.027976454840372228,
+      "max_body_rate_radps": 0.0008321002824231982,
+      "max_moment_nm": 1.9336378898060502e-07,
+      "reference_saturation_ratio": 0.0,
+      "controller_saturation_ratio": 0.0,
+      "ground_crash": false,
+      "nonfinite": false,
+      "controller_runtime_ms_mean": 1.7718890268588439,
+      "controller_runtime_ms_max": 2.889106050133705
+    }
+  ],
+  "contact": {
+    "name": "slow_normal_descent_contact",
+    "contact_seen": true,
+    "first_contact_normal_speed_mps": 0.014952974393963814,
+    "first_contact_tangential_speed_mps": 0.01723277010023594,
+    "hard_contact": false,
+    "ground_crash": false,
+    "nonfinite": false,
+    "final_surface_clearance_m": -0.019964147359132767,
+    "controller_runtime_ms_mean": 1.8058025611058008
+  },
+  "gates": {
+    "no_nan_inf": true,
+    "basic_ground_crash_zero": true,
+    "tracking_stable": true,
+    "contact_safe": true
+  },
+  "status": "PASS"
+}

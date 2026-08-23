@@ -1,7 +1,7 @@
 # RL 研究长期路线图：运动船舶甲板自主降落
 
 > 项目：`/home/j/Isaac_RL_Projects/quadcopter_waypoint`  
-> 更新时间：2026-08-18  
+> 更新时间：2026-08-23  
 > 文档用途：只描述 RL 研究线尚未完成的长期任务、统一指标、阶段门和停止条件。  
 > 当前事实与历史结果仍以根 `README.md`、各理论文档及 `benchmarks/` 中冻结实验包为准；本文件不得改写历史 benchmark 语义。
 
@@ -378,35 +378,39 @@ policy inference latency
 
 ---
 
-# 阶段 D：Deployable Hierarchical RL
+# 阶段 D：PX4-Compatible Deployable Hierarchical RL
 
 ## 目标
 
-保留当前 22D→4D Direct RL 作为重要 baseline，但新增更适合 PX4/HIL/实机的分层策略。
+保留当前 `22D → 4D thrust/moment` Direct RL 为永久冻结的重要 baseline，同时新增一个**独立方法**，使 RL action 可以不改变物理语义地通过 PX4 标准 Offboard reference interface 部署。
 
-推荐主接口：
+2026-08-23 的架构决策将原先“先只输出 `vz_ref`、不足时再扩展 xyz”的候选方案更新为第一版直接使用 deck-relative 3D velocity reference：
 
 ```text
-relative state
-+ deck attitude / angular rate
-+ predicted deck state（未来接入）
-+ observation confidence
+deployable relative state
         ↓
 Hierarchical RL
         ↓
-WAIT / DESCEND / ABORT(or RECOVER)
-+ vertical velocity reference vz_ref
+[v_t1_rel_ref, v_t2_rel_ref, v_n_rel_ref]
         ↓
-PX4 / traditional low-level controller
+PX4-compatible Reference Adapter
+        ↓
+world/ENU velocity reference
+        ↓
+training: Vectorized PX4-like controller
+SITL/HIL/real: PX4 Offboard velocity controller
 ```
 
-如果仅 `vz_ref` 无法满足横向动态要求，再评估：
+其中 `t1/t2/n` 属于 deck frame；policy 不学习 yaw，yaw 由 deterministic rule 提供。完整理论、坐标系、contact-point velocity、action bounds、安全门、训练/部署 backend 区分和测试协议以 `docs/px4_compatible_hierarchical_rl_theory.md` 为唯一实现前置文档。
+
+明确：
 
 ```text
-[vx_ref, vy_ref, vz_ref]
+Direct RL != deprecated
+Hierarchical RL is a new independent method
 ```
 
-不直接从第一版扩展成新的低层 motor policy。
+不得把已有 4D thrust/moment checkpoint 直接解释成 3D velocity policy，也不从第一版扩展成 motor-level policy。
 
 ## 与 Direct RL 的正式比较
 
@@ -548,9 +552,10 @@ RL 仓库至少保留：
 ```text
 M0 Frozen Direct PPO teacher
 M1 Actor-preserving Direct PPO
-M2 Shift-adapted actor-preserving PPO（若阶段 A 找到 boundary）
-M3 Hierarchical RL
+M2 PX4-Compatible Hierarchical RL
 ```
+
+若阶段 A 后续形成正式 robustness boundary，再把 shift-adapted actor-preserving PPO 作为额外 adaptation 方法单独编号，不占用 M2，也不得改变 M0/M1/M2 的 action semantics。
 
 传统方法由传统项目继续推进，本仓库只需要预留统一输入/输出和评测字段，最终论文跨项目比较：
 
@@ -625,28 +630,39 @@ Combined representative shift
 
 ## 6. 当前唯一下一任务
 
-当前下一任务为：
-
-> **Sea-State Controlled Robustness Boundary Closure：围绕 realized deck angular speed `0.08..0.12 rad/s` 与 heave velocity `0.08..0.12 m/s`，设计窄分布、多 seed 的 frozen-policy controlled experiments，确认是否存在可重复退化边界。**
-
-当前阶段禁止：
+2026-08-23 已完成 PX4-Compatible Hierarchical RL action-interface 第一阶段：
 
 ```text
-PPO scratch
-ordinary fine-tuning
-actor-preserving fine-tuning
-recurrent RL
-visual RL
-hierarchical RL implementation
+theory gate                         = PASS
+Reference Adapter unit tests        = PASS
+Vectorized PX4-like controller tests= PASS
+independent 3D-action task          = IMPLEMENTED
+1-env deterministic smoke           = PASS
+16-env GPU-vectorized smoke          = PASS
 ```
 
-直到 boundary gate 得出明确结果。
-
-如果两轮 controlled redesign 后仍无正式 boundary：
+证据入口：
 
 ```text
-freeze Sea-State zero-shot robustness result
-→ move to Perception-Aware RL
+docs/px4_compatible_hierarchical_rl_theory.md
+benchmarks/px4_hierarchical_smoke/
 ```
 
-而不是继续无上限扩大海况。
+因此当前下一任务在预定义的两个候选中选择：
+
+> **A. train PX4-compatible hierarchical RL**
+
+选择 A 而不是先做 B（PX4 SITL）的原因是：当前 smoke 已证明 reference adapter、vectorized surrogate controller、25 Hz/100 Hz 分层频率和实体接触路径可稳定运行，但还没有一个训练后的 `22D → 3D velocity reference` policy 可供 SITL 集成。先完成 M2 的小规模 PPO sanity/tuning，再按统一 deterministic benchmark 形成正式 checkpoint；只有训练后 policy 通过仿真 gate，才进入 exported policy → PX4 SITL，并量化 surrogate controller mismatch。
+
+仍禁止：
+
+```text
+修改 M0/M1 checkpoint 或 action semantics
+改写 Sea-State 历史 benchmark
+把 smoke 写成 PPO success result
+4096× PX4 SITL training
+第一版学习 yaw / motor action
+在没有小规模 sanity 的情况下直接启动正式大规模 PPO
+```
+
+Sea-State Controlled Robustness Boundary Closure 仍保留为后续研究任务；本次顺序调整不否定、删除或重写已有 Sea-State 结论与资产。
