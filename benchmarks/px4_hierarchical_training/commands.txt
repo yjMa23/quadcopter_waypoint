@@ -13,3 +13,10 @@ python scripts/rl_games/eval_px4_hierarchical_zero_action.py --num_envs 16 --epi
 
 # Stage 3 PPO sanity (run only after Stage 0-2 PASS)
 python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=42 --headless --max_iterations=30
+
+# Fixed-seed diagnostic checkpoint evaluations used to decide the sanity gate.
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-00-25/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_10_rew_-37.450386.pth --csv=benchmarks/px4_hierarchical_training/sanity_ep10_seed145.csv --headless
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-00-25/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_20_rew_-50.518173.pth --csv=benchmarks/px4_hierarchical_training/sanity_ep20_seed145.csv --headless
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-00-25/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_30_rew_-60.917656.pth --csv=benchmarks/px4_hierarchical_training/sanity_ep30_seed145.csv --headless
+
+# Stage 4 candidate training is intentionally NOT run because the Stage 3 sanity gate failed.

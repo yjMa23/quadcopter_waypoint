@@ -154,7 +154,7 @@ benchmarks/actor_preserving_ppo/commands.txt
 - 扩大 Sea-State zero-shot 多 seed 评估，并在安全 envelope 内确定可复现的 distribution-shift degradation boundary。
 - 加入动力学随机化，并用实测数据完成系统辨识。
 - 接入 ArUco 相对状态估计，建模噪声、延迟、丢帧和状态历史。
-- 继续训练并正式评估 PX4-compatible hierarchical RL；当前已完成 action/controller smoke、M2 evaluator 与 deterministic zero-action baseline，下一门禁是 64-env / seed-42 / 30-iteration PPO sanity。
+- PX4-compatible hierarchical RL 已完成 action/controller smoke、M2 evaluator、deterministic zero-action baseline 和首轮 64-env / seed-42 / 30-iteration PPO sanity；首轮 sanity 判定 **FAIL**（settled=0、fixed-seed checkpoints crash=100%、ep30 reference saturation=48.8%，controller saturation=0）。下一步只做 M2 `sigma_init.val: 0 -> -1.0` 的单变量 sanity 复验，不进入长训或 SITL。
 - hierarchical policy 通过正式仿真 gate 后，再把导出策略接入 PX4 SITL，量化 surrogate→PX4 controller mismatch。
 - 建立 PID 与 NMPC baseline，统一成功定义和评估预算后比较。
 - 推进 Sim-to-Real；完成状态策略实机验证后，再研究后续视觉策略。

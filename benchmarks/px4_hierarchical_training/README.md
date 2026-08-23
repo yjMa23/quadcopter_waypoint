@@ -56,6 +56,38 @@ Observed in all four cases:
 
 Therefore any later alignment, descent, touchdown timing, or landing success must be produced by the learned policy rather than by the zero-action baseline.
 
+## Stage 3 PPO sanity
+
+The required `seed=42 / num_envs=64 / max_iterations=30` sanity run completed, but the gate result is:
+
+```text
+SANITY FAIL
+```
+
+Key evidence:
+
+- training reward worsened from `-2.9475` at iteration 1 to `-60.9177` at iteration 30;
+- settled landing stayed at `0%` throughout training;
+- fixed-seed-145 deterministic ep10/ep20/ep30 checkpoint evaluations all had `0%` settled landing and `100%` crash;
+- hard contact and ground crash stayed at `0%`;
+- all five controller saturation ratios stayed at `0%`;
+- ep30 deterministic reference saturation reached `48.8%`, with all three normalized action axes reaching `abs(action)=1.0` during evaluation;
+- the inherited `continuous_a2c_logstd` exploration parameter remained about one normalized action unit (`exp(sigma) ≈ 0.97–1.21`).
+
+Diagnosis therefore stops at the prescribed **Case C (policy/action distribution saturation)** before auditing or changing reward.
+
+See:
+
+```text
+sanity_result.md
+sanity_ep10_seed145.csv
+sanity_ep20_seed145.csv
+sanity_ep30_seed145.csv
+candidate_table.md
+validation_result.md
+checkpoint_hashes.txt
+```
+
 ## Next gate
 
-Only after the above PASS results, run the seed-42, 64-env, 30-iteration PPO sanity experiment. If learning is not stable/interpretable, stop and diagnose before any 100-200 iteration candidate training.
+Do not run 100–200 iteration C0 training and do not enter PX4 SITL. The next one-variable-at-a-time experiment is a repeated 64-env / seed-42 / 30-iteration sanity with only M2 `sigma_init.val` changed from `0` to `-1.0`. Action bounds/scaling, controller, reward, success/contact semantics, network, learning rate, and M0/M1 remain frozen.

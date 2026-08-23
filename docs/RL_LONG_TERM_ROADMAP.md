@@ -654,13 +654,24 @@ benchmarks/px4_hierarchical_smoke/
 benchmarks/px4_hierarchical_training/
 ```
 
-当前唯一允许的下一步仍属于：
+随后已执行 `seed=42 / num_envs=64 / max_iterations=30` PPO sanity，结果为：
 
-> **A. train PX4-compatible hierarchical RL**
+```text
+SANITY FAIL
+reward: -2.95 (iter 1) → -60.92 (iter 30)
+settled landing: 0 throughout
+fixed-seed ep10/20/30: settled=0%, crash=100%
+controller saturation: all five = 0%
+ep30 deterministic reference saturation: 48.8%
+```
 
-但现在进一步收紧为：先执行 `seed=42 / num_envs=64 / max_iterations=30` PPO sanity。只有 sanity 证明 reward 或 landing intermediate metrics 出现稳定、可解释改善，且 NaN/Inf=0、controller 无 explosion、saturation 不长期接近 100%、ground crash 不持续恶化，才允许进入 256-env / 100~200-iteration C0 candidate training。
+因此当前唯一允许的下一步属于用户规定的：
 
-选择 A 而不是先做 B（PX4 SITL）的原因不变：当前接口、controller surrogate、25 Hz/100 Hz 分层频率、实体接触和 evaluator 已被验证，但仍没有经过学习门禁与 deterministic benchmark 选择的 `22D → 3D velocity reference` checkpoint。只有 M2 nominal benchmark PASS 后，才进入 exported policy → PX4 SITL 并量化 surrogate controller mismatch。
+> **A. M2 nominal capability still insufficient → continue one-variable-at-a-time training/controller diagnosis**
+
+当前诊断停在 Case C，而不是 controller 或 reward：M2 继承的 `continuous_a2c_logstd` 以 `sigma_init.val=0` 开始，探索 std 约为 1 个 normalized action unit，训练 checkpoint 的 `exp(sigma)` 仍约 `0.97~1.21`；ep30 deterministic policy 三轴均触及 action bound。下一实验只允许把 **M2 独立 PPO config** 的 `sigma_init.val` 从 `0` 改为 `-1.0`，其余 action range/scaling、controller、reward、network、lr、success/contact contract 均冻结，然后重新执行相同 64-env / seed-42 / 30-iteration sanity。
+
+禁止直接进入 256-env / 100~200 iteration C0，更禁止 PX4 SITL。只有后续 sanity PASS、candidate validation 和 M2 nominal benchmark PASS 后，路线才可切换到 B（exported policy → PX4 SITL）。
 
 仍禁止：
 

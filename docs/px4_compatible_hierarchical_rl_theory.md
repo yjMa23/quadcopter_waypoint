@@ -1306,3 +1306,62 @@ ground crash does not keep worsening
 ```
 
 若不满足，必须按 reference → controller tracking → action scaling → reward gradient 的顺序诊断，并停止扩大训练迭代数。
+
+## 17.4 2026-08-23 sanity 实测结果
+
+执行：
+
+```text
+seed = 42
+num_envs = 64
+max_iterations = 30
+```
+
+结论：
+
+```text
+SANITY FAIL
+```
+
+主要证据：
+
+```text
+rewards/iter: -2.95 (iter 1) → -37.45 (10) → -50.52 (20) → -60.92 (30)
+settled landing: 始终 0
+training hard contact / ground crash: 0
+controller 五类 saturation: 始终 0
+```
+
+固定 `seed=145`、每 checkpoint 64 episodes 的 deterministic 评估中：
+
+```text
+             ep10      ep20      ep30
+align        25.00%    26.56%    28.12%
+settled       0%        0%        0%
+crash        100%      100%      100%
+ground         0%        0%        0%
+hard           0%        0%        0%
+deck miss    48.44%    26.56%    89.06%
+ref sat      25.20%    17.30%    48.80%
+controller sat (all five) = 0%
+```
+
+因此当前不能用“短训练轮数不足”解释结果，也不能通过增加到 200/1000 iterations 继续硬训。
+
+按预定义诊断顺序：
+
+1. Reference Adapter 的 zero-action、frame、slew 与 physical bounds 已通过单元测试、smoke 和 zero-action baseline；暂没有证据支持 Case A 为主因。
+2. controller 在 deterministic checkpoints 中五类 saturation 全部为 0，tracking 有界；Case B 不是首要瓶颈。
+3. ep30 deterministic policy 三轴均触及 `abs(action)=1`，reference saturation 上升到 `48.8%`；同时当前 `continuous_a2c_logstd` 的探索 log-std 从 `0` 初始化，三个 checkpoint 的 `exp(sigma)` 仍约为 `0.97~1.21` normalized action unit。故首个有证据支持的失败模式是 **Case C：policy/action distribution saturation / exploration scale 与新的 velocity-reference action 不匹配**。
+4. 因 Case C 尚未闭合，本轮不进入 Case D reward audit，更不修改 frozen reward。
+
+下一次只允许一个变量变化：M2 独立 PPO config 的 `sigma_init.val: 0 → -1.0`，使初始 state-independent exploration std 从约 `1.0` 降到 `exp(-1)≈0.368` normalized action unit。其余 action bounds/scaling、controller、reward、success/contact contract、network、lr 全部保持不变，并重新执行同一个 64-env / seed-42 / 30-iteration sanity gate。
+
+完整证据见：
+
+```text
+benchmarks/px4_hierarchical_training/sanity_result.md
+benchmarks/px4_hierarchical_training/sanity_ep10_seed145.csv
+benchmarks/px4_hierarchical_training/sanity_ep20_seed145.csv
+benchmarks/px4_hierarchical_training/sanity_ep30_seed145.csv
+```
