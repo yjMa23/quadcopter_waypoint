@@ -1371,3 +1371,27 @@ benchmarks/px4_hierarchical_training/sanity_ep30_seed145.csv
 S0 showed large exploration variance and high reference saturation. S1 tests whether reducing initial PPO exploration variance from `sigma_init.val = 0` to `-1.0` (`sigma ≈ exp(-1) ≈ 0.368`) is sufficient to restore learnable velocity-reference behavior without changing controller, reward, action semantics, physical action range, slew limiting, success/contact/failure contracts, or any other PPO hyperparameter.
 
 This is a preregistered hypothesis only. No S1 conclusion is claimed before the repeated 64-env / seed-42 / 30-iteration sanity run and fixed-seed checkpoint diagnostics are complete.
+
+## 17.6 S1 result and diagnosis transition
+
+S1 completed with the same `seed=42 / 64 env / 30 iteration` budget and no runtime NaN/Inf or controller instability. The actual checkpoint exploration standard deviations remained near the intended lower regime (`exp(sigma) ≈ 0.35–0.46`), and deterministic reference saturation at `seed=145` became `0% / 0.47% / 0%` for ep10/ep20/ep30. All five controller saturation metrics remained 0, while deterministic crash fell from `100%` at ep10 to `51.56%` at ep30, deck miss fell from `75.00%` to `28.12%`, and align rose from `7.81%` to `31.25%`.
+
+However, settled landing remained 0% and `rewards/iter` still degraded persistently (`-2.74 → -28.91 → -53.96 → -73.86`). Therefore the preregistered gate result is:
+
+```text
+S1 SANITY FAIL
+```
+
+The important diagnostic change is that S1 substantially closes the Case C saturation hypothesis: action/reference saturation is no longer excessive, controller tracking remains bounded, and controller saturation remains zero. The remaining failure is now characterized by a mismatch between improving deterministic task intermediates and worsening training return, together with increasing timeout instead of settled landing. This is sufficient to advance the diagnosis order to a **Case D reward compatibility audit**.
+
+Do not automatically execute `sigma_init=-1.5`: S2 was conditional on Case C remaining dominant, which S1 does not support. Do not run C0 because the S1 sanity gate failed. The next step is theory-first audit of the inherited M2 reward under velocity-reference control; any future reward modification must be M2-only, minimal, preregistered, and must preserve observation/action semantics, controller, success/contact/failure contracts, and M0/M1.
+
+Evidence:
+
+```text
+benchmarks/px4_hierarchical_training/sanity_s1_result.md
+benchmarks/px4_hierarchical_training/sanity_comparison_s0_vs_s1.md
+benchmarks/px4_hierarchical_training/sanity_s1_ep10_seed145.csv
+benchmarks/px4_hierarchical_training/sanity_s1_ep20_seed145.csv
+benchmarks/px4_hierarchical_training/sanity_s1_ep30_seed145.csv
+```
