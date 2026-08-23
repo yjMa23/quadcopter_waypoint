@@ -446,3 +446,46 @@ The final audit may recommend exactly one M2-only conceptual variable. It must l
 - If D0 is inconclusive, recommend a single diagnostic variable/instrumentation step rather than silently tuning multiple reward weights.
 
 No D1 implementation or training belongs in this task.
+
+## D0 evidence result
+
+The preregistered audit was completed using only the existing S0/S1 TensorBoard event files and fixed-seed deterministic evaluator CSVs. The detailed generated evidence is under:
+
+```text
+benchmarks/px4_hierarchical_training/reward_compatibility_audit/
+```
+
+The final decision is:
+
+```text
+D0-B LATCHED DESCENT-PHASE REWARD MISMATCH SUPPORTED
+```
+
+The decisive evidence is:
+
+1. Survival duration is not sufficient: S1 raw reward is strongly anti-correlated with episode length, but aggregate length-normalized reward also degrades from approximately `-0.219` reward/step at ep10 to `-0.357` at ep20 and `-0.425` at ep30 (ep30 uses the latest available length scalar from iteration 29).
+2. `can_land`-dependent negative magnitude is strongly associated with alignment in S1 (`Pearson=+0.809`, `Spearman=+0.866`), and the broader phase-sensitive magnitude share versus alignment is `+0.832/+0.897`.
+3. The phase costs repeatedly dominate high-alignment S1 reset cohorts. For example, restored approximate mean episodic contributions are about `-28.62` for `predicted_pad_error` and `-28.60` for `contact_clearance` at iteration 20; they reach approximately `-44.51` and `-42.31` at iteration 24.
+4. The fixed seed145 evaluator shows that latched alignment is commonly followed by loss of instantaneous horizontal alignment: S1 ep20 has `10/10` aligned episodes ending outside the `0.25 m` align radius, and S1 ep30 has `19/20`. Every aligned timeout is outside the radius (`3/3` at ep20 and `10/10` at ep30).
+5. Those aligned timeouts are not near-contact states: their mean terminal XY error / clearance are approximately `2.484 / 1.818 m` at ep20 and `0.710 / 0.425 m` at ep30. Yet the inherited reward phase remains permanently switched to landing/descent shaping because `_align_success` is latched.
+
+The reward-budget estimate further shows the ordering risk. A centered, level vehicle that has latched alignment but remains near the `0.75 m` approach height receives approximately `-5.41 reward/s` from `height_tracking + contact_clearance - align_bonus - align_hold` even before other terms. A latched vehicle displaced to roughly the `0.25 m` horizontal boundary can reach approximately `-9.04 reward/s` before adding recovery-velocity costs. Thus several seconds of physically recoverable post-latch behavior can exceed the one-off `crash_penalty=-30`.
+
+### D1 recommendation only
+
+Recommend exactly one future M2-only conceptual variable: **the descent-phase reward gate**. Keep `can_land` itself and all physical success/contact/failure semantics unchanged, but activate descent/contact shaping only when the episode has latched `can_land` **and** the current state remains inside an instantaneous recoverability envelope based on the already-existing horizontal, upper-height, tangential-speed, body/deck-angle, and upright thresholds. The lower alignment-height bound must not be reused for this reward gate because a correct descent naturally passes below it.
+
+The affected reward-phase terms would be only:
+
+```text
+post_align_descent
+height_tracking target selection
+descent_horizontal_rel_vel
+near_pad_horizontal_rel_vel
+predicted_pad_error
+contact_clearance
+center_precision
+center_precision_square
+```
+
+This is a recommendation, not an implementation. D0 made no reward-scale change, no new reward term, no `can_land` semantic change, no task-contract change, and performed no D1 training.
