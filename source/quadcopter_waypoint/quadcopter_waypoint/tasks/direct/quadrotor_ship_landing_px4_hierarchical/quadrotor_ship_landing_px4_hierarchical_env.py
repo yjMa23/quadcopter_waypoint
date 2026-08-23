@@ -14,6 +14,7 @@ from quadcopter_waypoint.tasks.direct.quadrotor_ship_landing_physical_deck_attit
     QuadcopterShipLandingPhysicalDeckAttitudeEnv,
     QuadcopterShipLandingPhysicalDeckAttitudeEnvCfg,
 )
+from quadcopter_waypoint.utils.m2_reward_gating import m2_descent_reward_active
 from quadcopter_waypoint.utils.physical_deck_attitude_math import local_to_world_position
 from quadcopter_waypoint.utils.px4_reference_adapter import (
     Px4ReferenceAdapterConfig,
@@ -137,6 +138,29 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
         self._episode_max_moment = torch.zeros(self.num_envs, device=self.device)
         self._episode_controller_runtime_ms_sum = torch.zeros(self.num_envs, device=self.device)
         self._episode_controller_runtime_ms_max = torch.zeros(self.num_envs, device=self.device)
+
+        self._episode_reward_gate_step_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_can_land_step_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_reward_gate_active_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_reward_gate_inactive_after_latch_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._episode_reward_gate_transition_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._episode_reward_gate_previous = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._episode_reward_gate_previous_valid = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self._episode_reward_gate_horizontal_error_violation_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._episode_reward_gate_horizontal_speed_violation_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._episode_reward_gate_attitude_violation_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._episode_reward_gate_too_high_violation_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+
         self._controller_runtime_sample_capacity = self.max_episode_length * self.cfg.decimation
         self._controller_runtime_ms_samples = torch.zeros(
             self.num_envs, self._controller_runtime_sample_capacity, device=self.device
@@ -160,6 +184,13 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             "_last_controller_runtime_ms_mean",
             "_last_controller_runtime_ms_p95",
             "_last_controller_runtime_ms_max",
+            "_last_reward_descent_phase_active_ratio",
+            "_last_can_land_but_reward_gate_inactive_ratio",
+            "_last_reward_gate_transition_count",
+            "_last_reward_gate_horizontal_error_violation_ratio",
+            "_last_reward_gate_horizontal_speed_violation_ratio",
+            "_last_reward_gate_attitude_violation_ratio",
+            "_last_reward_gate_too_high_violation_ratio",
         ):
             setattr(self, name, torch.zeros(self.num_envs, device=self.device))
         self._last_action_mean = torch.zeros(self.num_envs, 3, device=self.device)
@@ -175,6 +206,59 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
         self._robot_inertia_b = body_inertias.reshape(self.num_envs, len(self._body_id), 3, 3)[:, 0].to(
             device=self.device, dtype=self._robot.data.root_quat_w.dtype
         )
+
+    def _reward_descent_phase_active(self, terms: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Keep physical ``can_land`` latched while gating only M2 descent shaping instantaneously."""
+        return m2_descent_reward_active(
+            can_land=terms["can_land"],
+            horizontal_error=terms["horizontal_error"],
+            horizontal_speed=terms["horizontal_speed"],
+            body_deck_normal_angle=terms["body_deck_normal_angle"],
+            upright=terms["upright"],
+            robot_height_above_pad=terms["robot_height_above_pad"],
+            align_radius=self.cfg.align_radius,
+            align_max_horizontal_speed=self.cfg.align_max_horizontal_speed,
+            align_body_deck_angle=self.cfg.align_body_deck_angle,
+            align_upright=self.cfg.align_upright,
+            align_height_max=self.cfg.align_height_max,
+        )
+
+    def _record_reward_descent_phase_diagnostics(
+        self, terms: dict[str, torch.Tensor], descent_reward_active: torch.Tensor
+    ) -> None:
+        """Accumulate M2-only reward-gate diagnostics once per policy/reward step."""
+        if not hasattr(self, "_episode_reward_gate_step_count"):
+            return
+
+        can_land = terms["can_land"]
+        gate_inactive_after_latch = can_land & (~descent_reward_active)
+        transition = self._episode_reward_gate_previous_valid & (
+            descent_reward_active != self._episode_reward_gate_previous
+        )
+
+        self._episode_reward_gate_step_count += 1
+        self._episode_can_land_step_count += can_land.long()
+        self._episode_reward_gate_active_count += descent_reward_active.long()
+        self._episode_reward_gate_inactive_after_latch_count += gate_inactive_after_latch.long()
+        self._episode_reward_gate_transition_count += transition.long()
+        self._episode_reward_gate_horizontal_error_violation_count += (
+            can_land & (terms["horizontal_error"] >= self.cfg.align_radius)
+        ).long()
+        self._episode_reward_gate_horizontal_speed_violation_count += (
+            can_land & (terms["horizontal_speed"] >= self.cfg.align_max_horizontal_speed)
+        ).long()
+        self._episode_reward_gate_attitude_violation_count += (
+            can_land
+            & (
+                (terms["body_deck_normal_angle"] >= self.cfg.align_body_deck_angle)
+                | (terms["upright"] <= self.cfg.align_upright)
+            )
+        ).long()
+        self._episode_reward_gate_too_high_violation_count += (
+            can_land & (terms["robot_height_above_pad"] >= self.cfg.align_height_max)
+        ).long()
+        self._episode_reward_gate_previous.copy_(descent_reward_active)
+        self._episode_reward_gate_previous_valid.fill_(True)
 
     @staticmethod
     def _episode_percentile(
@@ -374,6 +458,42 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
         )
         self._last_controller_runtime_ms_max[env_ids] = self._episode_controller_runtime_ms_max[env_ids]
 
+        reward_steps = self._episode_reward_gate_step_count[env_ids].clamp_min(1)
+        can_land_steps_raw = self._episode_can_land_step_count[env_ids]
+        can_land_steps = can_land_steps_raw.clamp_min(1)
+        self._last_reward_descent_phase_active_ratio[env_ids] = (
+            self._episode_reward_gate_active_count[env_ids].float() / reward_steps
+        )
+        self._last_can_land_but_reward_gate_inactive_ratio[env_ids] = torch.where(
+            can_land_steps_raw > 0,
+            self._episode_reward_gate_inactive_after_latch_count[env_ids].float() / can_land_steps,
+            torch.zeros_like(can_land_steps, dtype=torch.float),
+        )
+        self._last_reward_gate_transition_count[env_ids] = self._episode_reward_gate_transition_count[env_ids].float()
+        for target, count in (
+            (
+                self._last_reward_gate_horizontal_error_violation_ratio,
+                self._episode_reward_gate_horizontal_error_violation_count,
+            ),
+            (
+                self._last_reward_gate_horizontal_speed_violation_ratio,
+                self._episode_reward_gate_horizontal_speed_violation_count,
+            ),
+            (
+                self._last_reward_gate_attitude_violation_ratio,
+                self._episode_reward_gate_attitude_violation_count,
+            ),
+            (
+                self._last_reward_gate_too_high_violation_ratio,
+                self._episode_reward_gate_too_high_violation_count,
+            ),
+        ):
+            target[env_ids] = torch.where(
+                can_land_steps_raw > 0,
+                count[env_ids].float() / can_land_steps,
+                torch.zeros_like(can_land_steps, dtype=torch.float),
+            )
+
     def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
         # During DirectRLEnv construction this override can be reached before the hierarchical buffers
         # exist, so always let the frozen parent reset first and only then reset new action state.
@@ -413,6 +533,37 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             log["Metrics/m2_hard_contact_rate"] = self._last_hard_contact[completed_ids].float().mean().item()
             log["Metrics/m2_ground_crash_rate"] = self._last_ground_crash[completed_ids].float().mean().item()
             log["Metrics/m2_deck_miss_rate"] = self._last_deck_miss[completed_ids].float().mean().item()
+            log["Metrics/m2_reward_descent_phase_active_ratio"] = self._last_reward_descent_phase_active_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_can_land_but_reward_gate_inactive_ratio"] = self._last_can_land_but_reward_gate_inactive_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_reward_gate_transition_count"] = self._last_reward_gate_transition_count[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_reward_gate_horizontal_error_violation_ratio"] = (
+                self._last_reward_gate_horizontal_error_violation_ratio[completed_ids].mean().item()
+            )
+            log["Metrics/m2_reward_gate_horizontal_speed_violation_ratio"] = (
+                self._last_reward_gate_horizontal_speed_violation_ratio[completed_ids].mean().item()
+            )
+            log["Metrics/m2_reward_gate_attitude_violation_ratio"] = self._last_reward_gate_attitude_violation_ratio[
+                completed_ids
+            ].mean().item()
+            log["Metrics/m2_reward_gate_too_high_violation_ratio"] = self._last_reward_gate_too_high_violation_ratio[
+                completed_ids
+            ].mean().item()
+
+            aligned = self._last_align_success[completed_ids]
+            outside_align = self._terminal_horizontal_error[completed_ids] >= self.cfg.align_radius
+            log["Metrics/m2_terminal_outside_align_after_latch_rate"] = (
+                outside_align[aligned].float().mean().item() if torch.any(aligned) else 0.0
+            )
+            aligned_timeout = aligned & self._terminal_time_out[completed_ids]
+            log["Metrics/m2_timeout_outside_align_after_latch_rate"] = (
+                outside_align[aligned_timeout].float().mean().item() if torch.any(aligned_timeout) else 0.0
+            )
             for axis, label in enumerate(("t1", "t2", "normal")):
                 log[f"Metrics/m2_action_{label}_mean"] = self._last_action_mean[completed_ids, axis].mean().item()
                 log[f"Metrics/m2_action_{label}_std"] = self._last_action_std[completed_ids, axis].mean().item()
@@ -442,6 +593,17 @@ class QuadcopterShipLandingPx4HierarchicalEnv(QuadcopterShipLandingPhysicalDeckA
             self._episode_max_moment,
             self._episode_controller_runtime_ms_sum,
             self._episode_controller_runtime_ms_max,
+            self._episode_reward_gate_step_count,
+            self._episode_can_land_step_count,
+            self._episode_reward_gate_active_count,
+            self._episode_reward_gate_inactive_after_latch_count,
+            self._episode_reward_gate_transition_count,
+            self._episode_reward_gate_previous,
+            self._episode_reward_gate_previous_valid,
+            self._episode_reward_gate_horizontal_error_violation_count,
+            self._episode_reward_gate_horizontal_speed_violation_count,
+            self._episode_reward_gate_attitude_violation_count,
+            self._episode_reward_gate_too_high_violation_count,
         ):
             buffer[env_ids] = 0
         self._episode_action_sum[env_ids] = 0.0

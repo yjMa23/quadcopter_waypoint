@@ -31,6 +31,13 @@ PX4_HIERARCHICAL_SCALAR_LATCHES = {
     "controller_runtime_ms_mean": "_last_controller_runtime_ms_mean",
     "controller_runtime_ms_p95": "_last_controller_runtime_ms_p95",
     "controller_runtime_ms_max": "_last_controller_runtime_ms_max",
+    "reward_descent_phase_active_ratio": "_last_reward_descent_phase_active_ratio",
+    "can_land_but_reward_gate_inactive_ratio": "_last_can_land_but_reward_gate_inactive_ratio",
+    "reward_gate_transition_count": "_last_reward_gate_transition_count",
+    "reward_gate_horizontal_error_violation_ratio": "_last_reward_gate_horizontal_error_violation_ratio",
+    "reward_gate_horizontal_speed_violation_ratio": "_last_reward_gate_horizontal_speed_violation_ratio",
+    "reward_gate_attitude_violation_ratio": "_last_reward_gate_attitude_violation_ratio",
+    "reward_gate_too_high_violation_ratio": "_last_reward_gate_too_high_violation_ratio",
 }
 PX4_HIERARCHICAL_VECTOR_LATCHES = {
     "action_mean": "_last_action_mean",

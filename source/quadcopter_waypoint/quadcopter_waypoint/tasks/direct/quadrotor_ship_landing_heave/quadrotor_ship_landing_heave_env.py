@@ -57,30 +57,50 @@ class QuadcopterShipLandingHeaveEnv(QuadcopterShipLandingEnv):
         self._episode_sums["center_precision"] = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self._episode_sums["center_precision_square"] = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
 
+    def _reward_descent_phase_active(self, terms: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Return reward-only descent-phase eligibility without changing physical landing permission."""
+        return terms["can_land"]
+
+    def _record_reward_descent_phase_diagnostics(
+        self, terms: dict[str, torch.Tensor], descent_reward_active: torch.Tensor
+    ) -> None:
+        """Optional child hook for reward-phase diagnostics; frozen parent tasks intentionally do nothing."""
+
     def _get_rewards(self) -> torch.Tensor:
         terms = self._compute_landing_terms()
         lin_vel_sq = torch.sum(torch.square(self._robot.data.root_lin_vel_b), dim=1)
         ang_vel_sq = torch.sum(torch.square(self._robot.data.root_ang_vel_b), dim=1)
         horizontal_error = terms["horizontal_error"]
+        descent_reward_active = self._reward_descent_phase_active(terms)
+        self._record_reward_descent_phase_diagnostics(terms, descent_reward_active)
         progress_to_pad = self._previous_horizontal_error - horizontal_error
         post_align_descent = torch.where(
-            terms["can_land"],
+            descent_reward_active,
             self._previous_height_error - terms["height_error"],
             torch.zeros_like(horizontal_error),
         )
         descent_vel = torch.square(terms["excess_descent_speed"])
         descent_horizontal_rel_vel = torch.where(
-            terms["can_land"], terms["horizontal_speed"], torch.zeros_like(horizontal_error)
+            descent_reward_active, terms["horizontal_speed"], torch.zeros_like(horizontal_error)
         )
-        near_pad_horizontal_rel_vel = terms["near_pad_track_weight"] * terms["horizontal_speed"]
+        near_pad_track_weight = torch.where(
+            descent_reward_active,
+            torch.clamp(
+                (self.cfg.near_pad_track_height - terms["robot_height_above_pad"]) / self.cfg.near_pad_track_height,
+                min=0.0,
+                max=1.0,
+            ),
+            torch.zeros_like(horizontal_error),
+        )
+        near_pad_horizontal_rel_vel = near_pad_track_weight * terms["horizontal_speed"]
         predicted_pad_error = torch.where(
-            terms["can_land"], terms["predicted_horizontal_error"], torch.zeros_like(horizontal_error)
+            descent_reward_active, terms["predicted_horizontal_error"], torch.zeros_like(horizontal_error)
         )
         contact_clearance = torch.where(
-            terms["can_land"], terms["contact_clearance_error"], torch.zeros_like(horizontal_error)
+            descent_reward_active, terms["contact_clearance_error"], torch.zeros_like(horizontal_error)
         )
         near_center_weight = torch.where(
-            terms["can_land"],
+            descent_reward_active,
             torch.clamp(
                 (self.cfg.near_center_height - terms["robot_height_above_pad"]) / self.cfg.near_center_height,
                 min=0.0,
@@ -90,6 +110,12 @@ class QuadcopterShipLandingHeaveEnv(QuadcopterShipLandingEnv):
         )
         center_precision = near_center_weight * horizontal_error
         center_precision_square = near_center_weight * torch.square(horizontal_error)
+        desired_height_above_pad = torch.where(
+            descent_reward_active,
+            torch.full_like(horizontal_error, self.cfg.landing_target_height),
+            torch.full_like(horizontal_error, self.cfg.approach_target_height),
+        )
+        height_tracking_error = torch.abs(terms["robot_height_above_pad"] - desired_height_above_pad)
 
         rewards = {
             "lin_vel": lin_vel_sq * self.cfg.lin_vel_reward_scale * self.step_dt,
@@ -97,7 +123,7 @@ class QuadcopterShipLandingHeaveEnv(QuadcopterShipLandingEnv):
             "progress_to_pad": progress_to_pad * self.cfg.progress_reward_scale,
             "post_align_descent": post_align_descent * self.cfg.post_align_descent_reward_scale,
             "horizontal_error": horizontal_error * self.cfg.horizontal_error_reward_scale * self.step_dt,
-            "height_tracking": terms["height_tracking_error"] * self.cfg.height_tracking_reward_scale * self.step_dt,
+            "height_tracking": height_tracking_error * self.cfg.height_tracking_reward_scale * self.step_dt,
             "rel_vel": terms["rel_vel"] * self.cfg.rel_vel_reward_scale * self.step_dt,
             "tilt": (1.0 - terms["upright"]) * self.cfg.tilt_reward_scale * self.step_dt,
             "descent_vel": descent_vel * self.cfg.descent_vel_reward_scale * self.step_dt,

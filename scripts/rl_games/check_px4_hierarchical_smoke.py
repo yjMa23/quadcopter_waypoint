@@ -236,6 +236,8 @@ def main() -> None:
         _run_tracking_case(task, "physical_deck_attitude", lambda: _set_attitude_deck(task)),
     ]
     contact = _run_contact_case(task)
+    reward = task._get_rewards()
+    reward_path_finite = bool(torch.all(torch.isfinite(reward)))
 
     tracking_pass = all(
         (not case["nonfinite"])
@@ -264,6 +266,7 @@ def main() -> None:
             "basic_ground_crash_zero": all(not case["ground_crash"] for case in cases) and not contact["ground_crash"],
             "tracking_stable": tracking_pass,
             "contact_safe": contact_pass,
+            "reward_path_finite": reward_path_finite,
         },
     }
     report["status"] = "PASS" if all(report["gates"].values()) else "FAIL"
