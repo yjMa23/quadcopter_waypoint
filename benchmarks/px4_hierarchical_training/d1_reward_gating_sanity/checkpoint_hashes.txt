@@ -1,0 +1,7 @@
+D1 run: logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_17-15-36
+
+7a1eecbfebba55d72950dd531ded222a46a942874f61fe223a96109f4a0615bc  nn/last_quadcopter_ship_landing_px4_hierarchical_ep_10_rew_-23.4894.pth
+a5eba7a661ff79fb92f4ccb30d66cf72a542a9c36a3d50d20a8ad5684d32a3ed  nn/last_quadcopter_ship_landing_px4_hierarchical_ep_20_rew_-38.442574.pth
+dc0fed46b4a21987fe06fdd0abecd7f907c4bf76d28e71ba2b8fb7ec8e0ba2e7  nn/last_quadcopter_ship_landing_px4_hierarchical_ep_30_rew_-40.85966.pth
+
+Checkpoints remain under logs/ and are not committed in this evidence package.

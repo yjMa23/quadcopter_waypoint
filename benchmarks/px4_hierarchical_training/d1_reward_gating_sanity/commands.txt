@@ -1,0 +1,23 @@
+# Environment
+source /home/j/anaconda3/etc/profile.d/conda.sh
+conda activate env_isaaclab
+export PYTHONPATH=source/quadcopter_waypoint
+
+# Stage 0 frozen regression at 6d1fb42
+python -m pytest -q tests
+
+# Stage 4 post-implementation regression and smoke
+python -m pytest -q tests
+python scripts/rl_games/check_px4_hierarchical_smoke.py --num_envs 1 --headless
+python scripts/rl_games/check_px4_hierarchical_smoke.py --num_envs 16 --headless
+
+# Stage 5 D1 PPO sanity: only M2 reward eligibility differs from S1
+python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=42 --headless --max_iterations=30
+
+# Stage 6 fixed deterministic evaluation: seed145, 64 env, 64 completed episodes
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_17-15-36/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_10_rew_-23.4894.pth --csv=benchmarks/px4_hierarchical_training/sanity_d1_ep10_seed145.csv --headless
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_17-15-36/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_20_rew_-38.442574.pth --csv=benchmarks/px4_hierarchical_training/sanity_d1_ep20_seed145.csv --headless
+python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_17-15-36/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_30_rew_-40.85966.pth --csv=benchmarks/px4_hierarchical_training/sanity_d1_ep30_seed145.csv --headless
+
+# Stage 7 offline S0/S1/D1 comparison and exploitation audit
+python scripts/rl_games/analyze_m2_d1_reward_gating.py --s0 logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-00-25/summaries --s1 logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-17-58/summaries --d1 logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_17-15-36/summaries --output-dir benchmarks/px4_hierarchical_training/d1_reward_gating_sanity

@@ -1,0 +1,10 @@
+metric,D1_ep10,D1_ep20,D1_ep30
+reward_descent_phase_active_ratio,0.0,0.024793390184640884,0.01799691841006279
+can_land_but_reward_gate_inactive_ratio,0.0,0.6368159055709839,0.10637626051902771
+reward_gate_transition_count,0.0,1.3333333730697632,0.5
+terminal_outside_align_after_latch_rate,0.0,0.6666666865348816,0.125
+timeout_outside_align_after_latch_rate,0.0,0.0,0.0833333358168602
+reward_gate_horizontal_error_violation_ratio,0.0,0.6368159055709839,0.10189968347549438
+reward_gate_horizontal_speed_violation_ratio,0.0,0.13266998529434204,0.01203874871134758
+reward_gate_attitude_violation_ratio,0.0,0.0,0.0
+reward_gate_too_high_violation_ratio,0.0,0.0,0.012396695092320442
