@@ -20,3 +20,10 @@ python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4H
 python scripts/rl_games/eval_metrics.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=145 --episodes=64 --checkpoint=logs/rl_games/quadcopter_ship_landing_px4_hierarchical/2026-08-23_12-00-25/nn/last_quadcopter_ship_landing_px4_hierarchical_ep_30_rew_-60.917656.pth --csv=benchmarks/px4_hierarchical_training/sanity_ep30_seed145.csv --headless
 
 # Stage 4 candidate training is intentionally NOT run because the Stage 3 sanity gate failed.
+
+# S1 preregistration: only sigma_init changes from 0 to -1.0.
+# Repeat the exact S0 budget from scratch; do not resume the S0 checkpoint.
+python scripts/rl_games/train.py --task=Isaac-Quadcopter-ShipLanding-Px4Hierarchical-Direct-v0 --num_envs=64 --seed=42 --headless --max_iterations=30
+
+# S1 deterministic validation commands are appended after the new ep10/ep20/ep30 checkpoint paths are known.
+# C0 remains blocked unless S1 is explicitly declared SANITY PASS.

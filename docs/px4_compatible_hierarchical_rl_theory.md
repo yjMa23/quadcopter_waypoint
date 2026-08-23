@@ -1365,3 +1365,9 @@ benchmarks/px4_hierarchical_training/sanity_ep10_seed145.csv
 benchmarks/px4_hierarchical_training/sanity_ep20_seed145.csv
 benchmarks/px4_hierarchical_training/sanity_ep30_seed145.csv
 ```
+
+## 17.5 S1 exploration-scale experimental hypothesis
+
+S0 showed large exploration variance and high reference saturation. S1 tests whether reducing initial PPO exploration variance from `sigma_init.val = 0` to `-1.0` (`sigma ≈ exp(-1) ≈ 0.368`) is sufficient to restore learnable velocity-reference behavior without changing controller, reward, action semantics, physical action range, slew limiting, success/contact/failure contracts, or any other PPO hyperparameter.
+
+This is a preregistered hypothesis only. No S1 conclusion is claimed before the repeated 64-env / seed-42 / 30-iteration sanity run and fixed-seed checkpoint diagnostics are complete.
