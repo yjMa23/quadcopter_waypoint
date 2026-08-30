@@ -894,6 +894,10 @@ git diff --check       = PASS
 frozen historical source diff = 0
 ```
 
+S4 之后新增一条 supplementary deterministic full-landing evidence，但它不新增 formal gate：固定 `static level deck + 1 env + seed=42 + initial clearance=0.25 m`，使用 deterministic scripted high-level action。两次相同场景均在 step 104 首次 safe contact、step 119 达成 `settle_hold=3/3` 与 `landing_success=true`，核心 first-contact/final metrics 完全一致；无 hard contact / ground crash。demo 的 `first-contact latch + contact_settle seating reference` 仅属于 demonstration-side scripted action logic，production policy / Reference Adapter / PX4-like controller / success thresholds 均未修改。
+
+复现说明：历史 `v6` JSON 的真实 `initial_clearance_m=0.25`；一次 `0.45 m` 初始间隙运行未在 episode 结束前检测到 deck contact，因此不视为同场景 repeat。demo 默认值已冻结到实际验证的 `0.25 m`。补充证据后的 full regression 为 `176 passed + 21 subtests`，S4 no-video regression 仍为 `9/9 PASS`，`git diff --check=PASS`。这些 evidence 不替代 S5/S6/S11、PPO 或 real-world evidence。
+
 **当前唯一允许的下一阶段是 S5：**
 
 ```text

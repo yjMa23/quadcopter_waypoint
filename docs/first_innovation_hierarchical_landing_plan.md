@@ -659,6 +659,24 @@ git diff --check       = PASS
 frozen historical source diff = 0
 ```
 
+#### Supplementary deterministic full-landing evidence
+
+该补充证据不新增 gate。冻结场景是 `static level deck + 1 env + seed=42 + initial clearance=0.25 m`，高层输入为 deterministic scripted action。demo 的 `first-contact latch + contact_settle seating reference` 仅属于 demonstration-side scripted logic，不进入 production policy、Reference Adapter、PX4-like controller 或 success detector，也没有改动任何 contact/success threshold。
+
+同一场景重复两次得到完全一致的核心 terminal metrics：step 104 首次 safe contact，horizontal error `5.07e-6 m`，normal/tangential relative speed `0.00812 / 0.00501 m/s`，relative angular speed `0.12173 rad/s`；step 119 `settle_hold=3/3` 并 `landing_success=true`，horizontal error `5.14e-5 m`，normal/tangential relative speed `0.000641 / 0.000791 m/s`，relative angular speed `0.03062 rad/s`，无 hard contact / ground crash。
+
+复现时还验证到：原 `v6` 证据实际使用 `initial_clearance_m=0.25`；一次 `0.45 m` 初始间隙运行未在 episode 结束前形成可检测 deck contact，因此不属于相同 deterministic case。demo 默认初始间隙已冻结为实际验证的 `0.25 m`。
+
+```text
+full-landing contract tests = PASS
+deterministic repeatability = PASS
+S4 no-video regression      = 9/9 PASS
+full regression             = 176 passed + 21 subtests
+git diff --check            = PASS
+```
+
+该证据只说明当前单环境 deterministic chain 能完成 touchdown + settle，不替代 S5/S6/S11，不是 moving/rotating-deck superiority、PPO 或 real-world evidence。
+
 ### S5 — 16-env GPU smoke
 
 **Entry gate**：S4 PASS。

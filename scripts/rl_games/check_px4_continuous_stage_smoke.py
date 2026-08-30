@@ -15,12 +15,22 @@ from isaaclab.app import AppLauncher
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--num_envs", type=int, default=1, choices=(1,))
 parser.add_argument("--output", type=Path, default=None)
+parser.add_argument("--video", action="store_true", help="Record all nine scripted cases into one MP4.")
+parser.add_argument("--video_output", type=Path, default=None)
+parser.add_argument("--video_fps", type=int, default=25)
+parser.add_argument("--video_width", type=int, default=960)
+parser.add_argument("--video_height", type=int, default=540)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
+if args.video:
+    args.enable_cameras = True
 app = AppLauncher(args).app
 
 import gymnasium as gym
+import imageio.v2 as imageio
+import numpy as np
 import torch
+from PIL import Image, ImageDraw
 
 import isaaclab_tasks  # noqa: F401
 import quadcopter_waypoint.tasks  # noqa: F401
@@ -35,6 +45,9 @@ SEED = 42
 STAGE_RATE_TOL = 1.0e-5
 QUAT_NORM_TOL = 2.0e-4
 ATTITUDE_RATE_TOL = 2.0e-3
+VIDEO_WRITER = None
+VIDEO_ENV = None
+VIDEO_FRAME_COUNT = 0
 
 
 def _identity_quat(task) -> torch.Tensor:
@@ -249,12 +262,41 @@ def _snapshot(task) -> dict:
     }
 
 
-def _run_actions(task, actions: list[torch.Tensor]) -> tuple[list[dict], list[float]]:
+def _capture_video_frame(case_name: str, sample: dict) -> None:
+    global VIDEO_FRAME_COUNT
+    if VIDEO_WRITER is None or VIDEO_ENV is None:
+        return
+    rendered = VIDEO_ENV.render()
+    if rendered is None:
+        raise RuntimeError("headless render returned no frame while video recording is enabled")
+    frame = np.asarray(rendered)
+    if frame.ndim != 3 or frame.shape[2] not in (3, 4):
+        raise RuntimeError(f"unexpected render frame shape: {frame.shape}")
+    frame = frame[:, :, :3].astype(np.uint8, copy=False)
+    image = Image.fromarray(frame).resize((args.video_width, args.video_height), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(image)
+    lines = (
+        f"S4 Continuous-Stage Smoke | {case_name}",
+        f"stage={sample['stage_filtered']:.3f}  alpha={sample['terminal_alpha']:.3f}  clearance={sample['surface_clearance']:.3f} m",
+        "v_rel_ref_D=[" + ", ".join(f"{value:+.2f}" for value in sample["relative_velocity_reference_d"]) + "] m/s",
+        f"tracking_error={sample['velocity_tracking_error']:.3f} m/s  saturated={sample['controller_saturated']}",
+    )
+    box_height = 20 + 24 * len(lines)
+    draw.rectangle((8, 8, min(args.video_width - 8, 760), box_height), fill=(0, 0, 0))
+    for index, line in enumerate(lines):
+        draw.text((18, 16 + 24 * index), line, fill=(255, 255, 255))
+    VIDEO_WRITER.append_data(np.asarray(image, dtype=np.uint8))
+    VIDEO_FRAME_COUNT += 1
+
+
+def _run_actions(task, actions: list[torch.Tensor], case_name: str) -> tuple[list[dict], list[float]]:
     samples: list[dict] = []
     runtime_samples: list[float] = []
     for action in actions:
         _advance_control_step(task, action, runtime_samples)
-        samples.append(_snapshot(task))
+        sample = _snapshot(task)
+        samples.append(sample)
+        _capture_video_frame(case_name, sample)
     return samples, runtime_samples
 
 
@@ -298,7 +340,7 @@ def _run_static_hover(task) -> dict:
     _set_flat_deck(task)
     _place_robot_above_target(task, 0.60)
     initial_pos = task._robot.data.root_pos_w.clone()
-    samples, runtimes = _run_actions(task, [_action(task) for _ in range(80)])
+    samples, runtimes = _run_actions(task, [_action(task) for _ in range(80)], "static_hover")
     summary = _case_summary("static_hover", samples, runtimes)
     drift = torch.linalg.norm(task._robot.data.root_pos_w - initial_pos, dim=-1)
     summary["max_position_drift_m"] = _scalar(drift)
@@ -319,7 +361,7 @@ def _run_stage_ramp(task) -> dict:
     _set_flat_deck(task)
     _place_robot_above_target(task, 0.70)
     stages = torch.linspace(-1.0, 1.0, 61).tolist()
-    samples, runtimes = _run_actions(task, [_action(task, stage=value) for value in stages])
+    samples, runtimes = _run_actions(task, [_action(task, stage=value) for value in stages], "stage_ramp")
     summary = _case_summary("stage_ramp", samples, runtimes)
     summary["V_t_monotonic_nonincreasing"] = all(
         nxt["V_t"] <= prev["V_t"] + 1.0e-6 for prev, nxt in zip(samples, samples[1:])
@@ -345,7 +387,7 @@ def _run_stage_ramp(task) -> dict:
 def _run_tracking_case(task, name: str, setup, steps: int = 100) -> dict:
     setup()
     _place_robot_above_target(task, 0.65, match_deck_velocity=True)
-    samples, runtimes = _run_actions(task, [_action(task) for _ in range(steps)])
+    samples, runtimes = _run_actions(task, [_action(task) for _ in range(steps)], name)
     summary = _case_summary(name, samples, runtimes)
     summary["gate"] = (
         not summary["nonfinite"]
@@ -362,7 +404,7 @@ def _run_normal_descent(task) -> dict:
     actions.extend(
         _action(task, xyz=(0.0, 0.0, -0.8), stage=value) for value in torch.linspace(-1.0, 1.0, 70).tolist()
     )
-    samples, runtimes = _run_actions(task, actions)
+    samples, runtimes = _run_actions(task, actions, "normal_descent_stage_ramp")
     summary = _case_summary("normal_descent_stage_ramp", samples, runtimes)
     low = samples[:10]
     high = samples[-10:]
@@ -384,7 +426,7 @@ def _run_normal_descent(task) -> dict:
 def _run_terminal_attitude(task) -> dict:
     _set_tilted_deck(task)
     _place_robot_above_target(task, 0.20)
-    samples, runtimes = _run_actions(task, [_action(task, stage=1.0) for _ in range(45)])
+    samples, runtimes = _run_actions(task, [_action(task, stage=1.0) for _ in range(45)], "terminal_attitude_blend")
     summary = _case_summary("terminal_attitude_blend", samples, runtimes)
     alpha_values = [sample["terminal_alpha"] for sample in samples]
     summary["alpha_initial"] = alpha_values[0]
@@ -411,7 +453,7 @@ def _run_static_yaw(task) -> dict:
     try:
         task._update_pad_motion()
         _place_robot_above_target(task, 0.60)
-        samples, runtimes = _run_actions(task, [_action(task) for _ in range(20)])
+        samples, runtimes = _run_actions(task, [_action(task) for _ in range(20)], "static_yaw_heading")
     finally:
         task._update_pad_motion = original_update
     summary = _case_summary("static_yaw_heading", samples, runtimes)
@@ -438,7 +480,7 @@ def _run_off_center_contact_point(task) -> dict:
         task._target_contact_point_d[:, 2] = 0.5 * task.cfg.pad_thickness
         _set_rotating_tilt_deck(task)
         _place_robot_above_target(task, 0.65, match_deck_velocity=True)
-        samples, runtimes = _run_actions(task, [_action(task) for _ in range(25)])
+        samples, runtimes = _run_actions(task, [_action(task) for _ in range(25)], "off_center_contact_point")
     finally:
         task._target_contact_point_d.copy_(original_target)
     summary = _case_summary("off_center_contact_point", samples, runtimes)
@@ -468,7 +510,7 @@ def _run_recovery(task) -> dict:
     _place_robot_above_target(task, 0.55)
     actions = [_action(task, stage=1.0) for _ in range(25)]
     actions.extend(_action(task, xyz=(0.0, 0.0, 0.7), stage=-1.0) for _ in range(35))
-    samples, runtimes = _run_actions(task, actions)
+    samples, runtimes = _run_actions(task, actions, "recovery")
     summary = _case_summary("recovery", samples, runtimes)
     peak_stage = max(sample["stage_filtered"] for sample in samples[:25])
     final_stage = samples[-1]["stage_filtered"]
@@ -495,14 +537,36 @@ def _run_recovery(task) -> dict:
 
 
 def main() -> None:
+    global VIDEO_WRITER, VIDEO_ENV, VIDEO_FRAME_COUNT
+    if args.video_fps <= 0 or args.video_width <= 0 or args.video_height <= 0:
+        raise ValueError("video fps and dimensions must be positive")
+
     cfg = QuadcopterShipLandingPx4ContinuousStageEnvCfg()
     cfg.scene.num_envs = args.num_envs
     cfg.seed = SEED
     cfg.debug_vis = False
     cfg.strict_deck_motion_consistency = False
-    env = gym.make(TASK_ID, cfg=cfg)
+    env = gym.make(TASK_ID, cfg=cfg, render_mode="rgb_array" if args.video else None)
     task = env.unwrapped
     env.reset(seed=42)
+
+    video_output = None
+    if args.video:
+        video_output = (
+            args.video_output
+            if args.video_output is not None
+            else Path("logs/rl_games/quadcopter_ship_landing_px4_continuous_stage/s4_deterministic_smoke_seed42.mp4")
+        ).expanduser().resolve()
+        video_output.parent.mkdir(parents=True, exist_ok=True)
+        VIDEO_ENV = env
+        VIDEO_FRAME_COUNT = 0
+        VIDEO_WRITER = imageio.get_writer(
+            video_output,
+            fps=args.video_fps,
+            codec="libx264",
+            quality=8,
+            macro_block_size=2,
+        )
 
     cases = [
         _run_static_hover(task),
@@ -519,6 +583,12 @@ def main() -> None:
         _run_off_center_contact_point(task),
         _run_recovery(task),
     ]
+    if VIDEO_WRITER is not None:
+        VIDEO_WRITER.close()
+        VIDEO_WRITER = None
+        VIDEO_ENV = None
+        if video_output is None or not video_output.is_file() or video_output.stat().st_size <= 0:
+            raise RuntimeError("video encoder produced an empty file")
     reward_path_finite = bool(torch.all(torch.isfinite(task._get_rewards())))
 
     no_nan_inf = all(not case["nonfinite"] for case in cases)
@@ -536,6 +606,14 @@ def main() -> None:
         "policy_hz": round(1.0 / task.step_dt),
         "stage_rate_limit_per_second": task.cfg.stage_rate_limit,
         "stage_rate_limit_per_policy_step": task.cfg.stage_rate_limit * task.step_dt,
+        "video": {
+            "generated": bool(args.video),
+            "path": str(video_output) if video_output is not None else None,
+            "fps": args.video_fps if args.video else None,
+            "resolution": [args.video_width, args.video_height] if args.video else None,
+            "frames": VIDEO_FRAME_COUNT if args.video else 0,
+            "duration_seconds": VIDEO_FRAME_COUNT / args.video_fps if args.video else 0.0,
+        },
         "cases": cases,
         "gates": {
             "all_scripted_cases": len(cases) == 9,

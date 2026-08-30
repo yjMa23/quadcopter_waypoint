@@ -1234,6 +1234,24 @@ max |delta_stage| = 0.08
 
 关键数值：stage ramp 的 `V_t` 单调下降、`V_down` 单调上升、`V_up` 单调下降；low-stage normal descent 被完全阻断，high-stage relative normal reference 达 `-0.2370 m/s`；recovery stage 从 `0.9880` 连续降至 `0.00158`，positive normal reference 达 `+0.2100 m/s`；terminal alpha 最大 `0.8693`，q_ref tilt 最大 `5.276 deg`，attitude-reference rate 最大约 `[0.2255, 0.1803, 0.0089] rad/s`；static yaw heading 为 `+15 deg` 且 q_vel/q_ref 同号一致；off-center contact-point feedforward correction 最大 `0.00536 m/s`。该证据只验证 S4 interface correctness，不宣称 S6/S11 formal benchmark 已完成。
 
+## 28.1 Supplementary deterministic full-landing evidence
+
+本补充证据不是新 formal gate。固定场景为 `static level deck + num_envs=1 + seed=42 + initial clearance=0.25 m`，采用 deterministic scripted high-level action，不使用 PPO、checkpoint 或 learned actor。demo 中的 `first-contact latch + contact_settle seating reference` 仅用于 demonstration-side scripted action；不得写入 production policy、Reference Adapter、PX4-like controller、contact detector 或 success predicate。
+
+两次完全相同的 `seed=42` / `0.25 m` 运行得到一致 terminal metrics：首次安全接触在 policy step 104，horizontal error `5.07e-6 m`，normal/tangential relative speed 分别 `0.00812 / 0.00501 m/s`，relative angular speed `0.12173 rad/s`；最终在 step 119 达成 `safe_contact=true`、`settle_hold=3/3`、`landing_success=true`，horizontal error `5.14e-5 m`，normal/tangential relative speed `0.000641 / 0.000791 m/s`，relative angular speed `0.03062 rad/s`，全程无 hard contact / ground crash。
+
+复现说明：历史 `v6` JSON 的真实 `initial_clearance_m` 是 `0.25`。一次 `0.45 m` 初始间隙运行在 episode 结束前未检测到 deck contact，因此它属于不同初始条件，不计入同场景 deterministic repeatability。demo 默认值已冻结到实际被验证的 `0.25 m`。
+
+```text
+full-landing contract = PASS
+deterministic repeatability = PASS
+S4 no-video regression = 9/9 PASS
+full regression = 176 passed + 21 subtests
+git diff --check = PASS
+```
+
+该补充 touchdown + settle 证据不替代 S5 16-env GPU smoke、S6 moving/rotating contact-point benchmark、S11 rotating-yaw benchmark、PPO 或实机证据。
+
 ---
 
 # 29. PPO sanity plan

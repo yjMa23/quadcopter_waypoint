@@ -193,3 +193,23 @@ frozen historical source diff = 0
 ```
 
 This is only interface/smoke evidence. It does not establish center-vs-contact-point superiority or rotating-yaw performance; those remain S6 and S11. The next gate is S5 16-env GPU Continuous-Stage smoke. PPO, checkpoint training/loading, SITL, ROS2, HIL, and real-vehicle work remain out of scope until their later gates.
+
+## Supplementary deterministic full-landing evidence
+
+This is supplementary demonstration evidence only, not a new formal gate. The scenario is a static level deck with `num_envs=1`, `seed=42`, `physics=100 Hz`, `policy=25 Hz`, and a frozen initial landing-surface clearance of `0.25 m`. The high-level commands are deterministic scripted actions; no PPO runner, checkpoint, or learned policy is used.
+
+The demo script is `scripts/rl_games/run_px4_continuous_stage_full_landing_demo.py`. Its `first-contact latch + contact_settle seating reference` is demonstration-side scripted action logic only. It is not part of the production policy, Reference Adapter, PX4-like controller, contact detector, or landing-success contract. Production safety/success thresholds remain unchanged.
+
+Two repeated `seed=42` runs of the same `0.25 m` scenario produced identical first-contact and final terminal metrics. First safe contact occurred at policy step 104 with horizontal error `5.07e-6 m`, normal relative speed `0.00812 m/s`, tangential relative speed `0.00501 m/s`, relative angular speed `0.12173 rad/s`, `safe_contact=true`, `hard_contact=false`, and `ground_crash=false`. Settled landing occurred at policy step 119 with horizontal error `5.14e-5 m`, normal relative speed `0.000641 m/s`, tangential relative speed `0.000791 m/s`, relative angular speed `0.03062 rad/s`, `settle_hold=3/3`, and `landing_success=true`.
+
+Reproduction note: the previously recorded `v6` evidence also used `initial_clearance_m=0.25`. An invocation with `0.45 m` was therefore a different initial condition and terminated without a detected deck contact before episode end; it is not counted as a repeat of the `v6` scenario. The demo default is now frozen to the actually validated `0.25 m` case so no-argument reproduction matches the recorded evidence.
+
+```text
+full-landing contract tests = PASS
+deterministic repeatability = PASS (two identical terminal metric sets)
+S4 no-video regression      = 9/9 cases PASS
+full regression             = 176 passed + 21 subtests
+git diff --check            = PASS
+```
+
+This supplementary evidence does not replace S5 16-env vectorization validation, S6 moving/rotating contact-point benchmark, S11 rotating-yaw benchmark, PPO evidence, or real-world evidence.
