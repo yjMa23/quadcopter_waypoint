@@ -73,6 +73,70 @@ def quat_from_euler_xyz(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tens
     )
 
 
+def quat_from_axis_angle(axis_angle: torch.Tensor, eps: float = 1.0e-9) -> torch.Tensor:
+    """Convert axis-angle vectors to unit ``(w, x, y, z)`` quaternions."""
+    if axis_angle.ndim < 1 or axis_angle.shape[-1] != 3:
+        raise ValueError(f"axis_angle must have shape [..., 3], got {tuple(axis_angle.shape)}")
+    if not bool(torch.all(torch.isfinite(axis_angle))):
+        raise ValueError("axis_angle contains NaN or Inf")
+    angle = torch.linalg.norm(axis_angle, dim=-1, keepdim=True)
+    half_angle = 0.5 * angle
+    scale = torch.where(
+        angle > eps,
+        torch.sin(half_angle) / angle.clamp_min(eps),
+        0.5 - angle.square() / 48.0,
+    )
+    return quat_normalize(torch.cat((torch.cos(half_angle), axis_angle * scale), dim=-1))
+
+
+def quat_from_rotation_matrix(rotation: torch.Tensor, eps: float = 1.0e-9) -> torch.Tensor:
+    """Convert world-from-local rotation matrices to unit ``(w, x, y, z)`` quaternions."""
+    if rotation.ndim < 2 or rotation.shape[-2:] != (3, 3):
+        raise ValueError(f"rotation must have shape [..., 3, 3], got {tuple(rotation.shape)}")
+    if not bool(torch.all(torch.isfinite(rotation))):
+        raise ValueError("rotation contains NaN or Inf")
+
+    m00 = rotation[..., 0, 0]
+    m01 = rotation[..., 0, 1]
+    m02 = rotation[..., 0, 2]
+    m10 = rotation[..., 1, 0]
+    m11 = rotation[..., 1, 1]
+    m12 = rotation[..., 1, 2]
+    m20 = rotation[..., 2, 0]
+    m21 = rotation[..., 2, 1]
+    m22 = rotation[..., 2, 2]
+
+    components = 0.5 * torch.sqrt(
+        torch.stack(
+            (
+                1.0 + m00 + m11 + m22,
+                1.0 + m00 - m11 - m22,
+                1.0 - m00 + m11 - m22,
+                1.0 - m00 - m11 + m22,
+            ),
+            dim=-1,
+        ).clamp_min(0.0)
+    )
+    qw, qx, qy, qz = components.unbind(dim=-1)
+    denom_w = (4.0 * qw).clamp_min(eps)
+    denom_x = (4.0 * qx).clamp_min(eps)
+    denom_y = (4.0 * qy).clamp_min(eps)
+    denom_z = (4.0 * qz).clamp_min(eps)
+    candidates = torch.stack(
+        (
+            torch.stack((qw, (m21 - m12) / denom_w, (m02 - m20) / denom_w, (m10 - m01) / denom_w), dim=-1),
+            torch.stack(((m21 - m12) / denom_x, qx, (m01 + m10) / denom_x, (m02 + m20) / denom_x), dim=-1),
+            torch.stack(((m02 - m20) / denom_y, (m01 + m10) / denom_y, qy, (m12 + m21) / denom_y), dim=-1),
+            torch.stack(((m10 - m01) / denom_z, (m02 + m20) / denom_z, (m12 + m21) / denom_z, qz), dim=-1),
+        ),
+        dim=-2,
+    )
+    best = torch.argmax(components, dim=-1, keepdim=True)
+    gather_index = best.unsqueeze(-1).expand(*best.shape[:-1], 1, 4)
+    quat = torch.gather(candidates, dim=-2, index=gather_index).squeeze(-2)
+    return quat_normalize(quat)
+
+
 def world_angular_velocity_from_xyz_rates(
     roll: torch.Tensor,
     pitch: torch.Tensor,

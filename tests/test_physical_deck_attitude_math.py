@@ -10,7 +10,9 @@ from quadcopter_waypoint.utils.physical_deck_attitude_math import (
     decompose_relative_velocity,
     local_to_world_position,
     quat_apply,
+    quat_from_axis_angle,
     quat_from_euler_xyz,
+    quat_from_rotation_matrix,
     rigid_surface_point_velocity,
     signed_deck_surface_clearance,
     world_angular_velocity_from_quat_delta,
@@ -39,6 +41,27 @@ def test_deck_normal_and_body_alignment_angle():
     normal = deck_normal_world(quat)
     torch.testing.assert_close(torch.linalg.norm(normal, dim=-1), _tensor([1.0]), atol=1.0e-10, rtol=1.0e-10)
     torch.testing.assert_close(body_deck_normal_angle(quat, normal), _tensor([0.0]), atol=1.0e-8, rtol=0.0)
+
+
+def test_axis_angle_quaternion_helper_matches_euler_axis_rotations():
+    axis_angle = _tensor([[0.2, 0.0, 0.0], [0.0, -0.3, 0.0], [0.0, 0.0, 0.4], [0.0, 0.0, 0.0]])
+    quat = quat_from_axis_angle(axis_angle)
+    expected = quat_from_euler_xyz(
+        _tensor([0.2, 0.0, 0.0, 0.0]),
+        _tensor([0.0, -0.3, 0.0, 0.0]),
+        _tensor([0.0, 0.0, 0.4, 0.0]),
+    )
+    torch.testing.assert_close(quat, expected, atol=1.0e-12, rtol=1.0e-12)
+
+
+def test_rotation_matrix_quaternion_helper_round_trip():
+    source = quat_from_euler_xyz(_tensor([0.2, -0.4]), _tensor([-0.3, 0.1]), _tensor([0.5, -0.2]))
+    basis = torch.eye(3, dtype=torch.float64)
+    axes = [quat_apply(source, basis[index].expand(2, 3)) for index in range(3)]
+    rotation = torch.stack(axes, dim=-1)
+    recovered = quat_from_rotation_matrix(rotation)
+    dot = torch.abs(torch.sum(source * recovered, dim=-1))
+    torch.testing.assert_close(dot, _tensor([1.0, 1.0]), atol=1.0e-12, rtol=0.0)
 
 
 def test_xyz_rate_mapping_matches_quaternion_log_map():

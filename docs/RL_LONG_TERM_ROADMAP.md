@@ -819,30 +819,47 @@ terminal deck-attitude guidance
 PX4 low-level reuse
 ```
 
-S0/S1 文档入口：
+第一创新点文档入口：
 
 ```text
 docs/first_innovation_hierarchical_landing_plan.md
 docs/continuous_stage_terminal_attitude_theory.md
 ```
 
-**本轮 Theory Gate 完成后，唯一允许的下一阶段是 S2：**
+截至 2026-08-30，当前 gate：
 
 ```text
-pure mathematical Continuous Landing Stage
-+
-pure Terminal Attitude Guidance
-+
-unit tests
+S0 Fixed-Stage baseline freeze = PASS
+S1 Theory Gate                 = PASS
+S2 Pure mathematical guidance = PASS
 ```
 
-预计新增功能导向 pure utility：
+S2 已新增：
 
 ```text
 source/quadcopter_waypoint/quadcopter_waypoint/utils/continuous_landing_stage.py
 ```
 
-S2 只允许纯数学：stage mapping/filter、stage-conditioned velocity envelope、stage-conditioned slew、terminal alignment weight、必要 quaternion/attitude reference math、relative angular velocity。不得引入 Isaac Sim/Gym/ROS2/PX4 runtime/RL-Games，也不得复制 `v_deck + omega×r`。
+并完成 stage mapping/filter、stage-conditioned velocity envelope、stage-conditioned slew、terminal alignment weight、deterministic deck heading、shortest-path quaternion SLERP、tilt feasibility、attitude-reference rate limit 与 relative angular velocity。Contact-point compensation 继续复用已有 adapter/math；Fixed-Stage M2 未修改。
+
+S2 验证：
+
+```text
+targeted regression = 65 passed
+full regression     = 155 passed + 21 subtests
+pre-S2 baseline     = 128 passed + 21 subtests
+added tests         = 27
+forbidden runtime dependency = 0
+CUDA tensor parity = PASS
+```
+
+**当前唯一允许的下一阶段是 S3：**
+
+```text
+Create independent Continuous-Stage PX4-compatible task
+```
+
+S3 之前仍禁止 Isaac smoke、PPO training 和 PX4 SITL。
 
 仍禁止：
 

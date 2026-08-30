@@ -1419,19 +1419,53 @@ S1 documentation synchronization 后完整回归：
 
 ---
 
-# 35. Next implementation gate
+# 35. S2 implementation evidence and next gate
 
-本轮结束后不要自动进入新 task 或训练。
+2026-08-30 已将本 Theory Gate 转化为 pure PyTorch/Python 数学实现：
+
+```text
+source/quadcopter_waypoint/quadcopter_waypoint/utils/continuous_landing_stage.py
+```
+
+Theory → implementation → unit-test 映射：
+
+| Theory contract | Implementation | Unit-test evidence |
+|---|---|---|
+| stage mapping / filter / shared smoothstep | `normalized_stage_action`, `filter_landing_stage`, `smoothstep01` | `tests/test_continuous_landing_stage.py` stage tests |
+| stage-conditioned velocity envelope | `stage_conditioned_velocity_limits`, `map_stage_conditioned_relative_velocity` | velocity endpoint/sign/norm/continuity tests |
+| policy-relative reference slew | `limit_stage_conditioned_reference_slew` | exact approach/terminal per-axis clamp tests |
+| terminal alignment weight | `terminal_alignment_weight` | far/near/stage/penetration/continuity tests |
+| deterministic deck heading | `deck_heading_world` | yaw projection and degenerate previous/world-x fallback tests |
+| shortest quaternion blend | `shortest_quaternion_slerp` | endpoint, `q/-q`, near-equal, norm, dtype/batch tests |
+| terminal tilt feasibility | `limit_attitude_tilt` | feasible parity, 35 deg cone clamp, heading/fallback/finite tests |
+| attitude-reference rate limit | `limit_attitude_reference_rate` | exact world-axis x/y/z rate clamp and sign tests |
+| relative angular velocity | `relative_angular_velocity` | subtraction/sign/zero/frame-norm tests |
+| quaternion Exp / matrix conversion reuse | `physical_deck_attitude_math.quat_from_axis_angle`, `quat_from_rotation_matrix` | `tests/test_physical_deck_attitude_math.py` helper tests |
+
+S2 validation evidence：
+
+```text
+targeted regression = 65 passed
+full regression     = 155 passed + 21 subtests
+pre-S2 baseline     = 128 passed + 21 subtests
+added tests         = 27
+CUDA parity         = PASS (executed, not skipped)
+forbidden dependency grep = 0
+```
+
+实现继续复用现有 `px4_reference_adapter.py` 的 contact-point compensation；Fixed-Stage M2 action/reference semantics 和 `VectorizedPx4LikeController` 未修改。
+
+```text
+S0 Fixed-Stage baseline freeze = PASS
+S1 Theory Gate                 = PASS
+S2 Pure mathematical guidance = PASS
+```
 
 下一阶段唯一允许工作：
 
 ```text
-S2
-pure Continuous Landing Stage
-+
-pure Terminal Attitude Guidance math
-+
-unit tests
+S3
+Create independent Continuous-Stage PX4-compatible task
 ```
 
-只有 pure-math tests 与 full regression PASS，才允许创建新的 independent Continuous-Stage task。
+本轮不自动进入 S3、Isaac smoke、PPO training 或 PX4 SITL。
