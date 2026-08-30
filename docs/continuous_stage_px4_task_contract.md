@@ -1,6 +1,6 @@
 # Continuous-Stage PX4-Compatible Landing Task Contract
 
-> Scope: S3 independent task only. This contract freezes the implementation boundary before coding. It does not claim simulator smoke, PPO, SITL, HIL, or real-vehicle evidence.
+> Scope: S3 independent task contract plus S4 1-env deterministic validation evidence. It does not claim PPO, 16-env GPU smoke, formal S6/S11 rotating-deck benchmarks, SITL, HIL, or real-vehicle evidence.
 
 ## Task identity and inheritance boundary
 
@@ -155,12 +155,41 @@ The old 22D->3D M2 checkpoint is never loaded or semantically reinterpreted for 
 
 S3 passes only if the independent task is registered with `action_space=4`, `observation_space=22`, `decimation=4`; all action/stage/reference/attitude/success/reward boundaries above are implemented; old M0/M1, Fixed-Stage M2 and historical PhysicalDeckAttitude source semantics remain unchanged; controller default behavior is numerically compatible; targeted tests, full regression, and `git diff --check` pass.
 
-## S4 boundary
+## S4 deterministic smoke evidence
 
-S4 is the next gate only after S3 PASS:
+S4 was executed after S3 PASS with:
 
 ```text
-S4 = 1-env deterministic Continuous-Stage smoke
+script   = scripts/rl_games/check_px4_continuous_stage_smoke.py
+task ID  = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs = 1
+seed     = 42
+physics  = 100 Hz
+policy   = 25 Hz
+output   = logs/rl_games/quadcopter_ship_landing_px4_continuous_stage/s4_deterministic_smoke_seed42.json
 ```
 
-S3 must not run S4 smoke, GPU smoke, PPO, checkpoint loading/training, SITL, ROS2, HIL, or real-vehicle tests.
+Execution command:
+
+```bash
+PYTHONPATH=source/quadcopter_waypoint \
+/home/j/anaconda3/envs/env_isaaclab/bin/python \
+scripts/rl_games/check_px4_continuous_stage_smoke.py \
+--num_envs 1 --headless \
+--output logs/rl_games/quadcopter_ship_landing_px4_continuous_stage/s4_deterministic_smoke_seed42.json
+```
+
+All nine scripted cases passed: static hover, stage ramp, constant XY deck, heave tracking, normal descent stage ramp, roll/pitch terminal-attitude blend, static yaw heading, off-center contact-point interface, and recovery. Global gates were `NaN/Inf=0`, `ground crash=0`, finite reward path, controller saturation ratio 0 in every case, and `max |delta_stage| = 0.08`, matching the frozen `2.0 1/s * 0.04 s` policy-step limit.
+
+Interface evidence includes: low-stage `V_down=0`; high-stage relative normal reference `-0.2370 m/s`; recovery stage `0.9880 -> 0.00158` with positive relative normal reference `+0.2100 m/s`; maximum terminal alpha `0.8693`; maximum q_ref tilt `5.276 deg`; maximum attitude-reference rate approximately `[0.2255, 0.1803, 0.0089] rad/s`; static deck/q_vel/q_ref heading approximately `+15 deg`; off-center contact-point feedforward correction `0.00536 m/s`. The largest velocity-tracking error occurred in the terminal-attitude blend case at approximately `0.968 m/s`; it remained finite with zero controller saturation and no hard/ground contact, so S4 basic-stability gate passes while this diagnostic is carried forward to S5/S6 rather than tuned away in S4.
+
+```text
+targeted S4 regression = 71 passed
+full regression        = 171 passed + 21 subtests
+pre-S4 baseline        = 167 passed + 21 subtests
+added S4 tests         = 4
+git diff --check       = PASS
+frozen historical source diff = 0
+```
+
+This is only interface/smoke evidence. It does not establish center-vs-contact-point superiority or rotating-yaw performance; those remain S6 and S11. The next gate is S5 16-env GPU Continuous-Stage smoke. PPO, checkpoint training/loading, SITL, ROS2, HIL, and real-vehicle work remain out of scope until their later gates.

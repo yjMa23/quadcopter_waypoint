@@ -868,13 +868,39 @@ git diff --check    = PASS
 frozen task source diff = 0
 ```
 
-**当前唯一允许的下一阶段是 S4：**
+S4 1-env deterministic Continuous-Stage smoke 已于 2026-08-30 PASS：
 
 ```text
-1-env deterministic Continuous-Stage smoke
+task ID        = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs       = 1
+seed           = 42
+physics/policy = 100 / 25 Hz
+scripted cases = 9/9 PASS
+NaN/Inf        = 0
+ground crash   = 0
+controller saturation ratio = 0 in all cases
+max |delta_stage| = 0.08 <= 2.0 * 0.04
+reward path    = finite
 ```
 
-S4 之前仍禁止 16-env GPU smoke、PPO training、64/256-env candidate 和 PX4 SITL。
+关键 S4 interface 证据：low-stage 负 normal action 被 `V_down=0` 阻断；high-stage normal reference 达 `-0.2370 m/s`；recovery stage 可从 `0.9880` 连续降至 `0.00158` 且 positive normal reference 达 `+0.2100 m/s`；terminal alpha 最大 `0.8693`，q_ref tilt 最大 `5.276 deg`，attitude-reference rate 最大约 `[0.2255, 0.1803, 0.0089] rad/s`；static yaw deck/q_vel/q_ref heading 均约 `+15 deg`；off-center contact-point correction 最大 `0.00536 m/s`。这些不替代 S6/S11 formal benchmark。
+
+```text
+targeted S4 regression = 71 passed
+full regression        = 171 passed + 21 subtests
+pre-S4 baseline        = 167 passed + 21 subtests
+added S4 tests         = 4
+git diff --check       = PASS
+frozen historical source diff = 0
+```
+
+**当前唯一允许的下一阶段是 S5：**
+
+```text
+16-env GPU Continuous-Stage smoke
+```
+
+S5 之前仍禁止 PPO training、64/256-env candidate 和 PX4 SITL。
 
 仍禁止：
 

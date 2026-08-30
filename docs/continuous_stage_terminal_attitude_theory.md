@@ -1181,7 +1181,7 @@ relative angular velocity used by new touchdown contract
 
 # 28. Deterministic smoke plan
 
-S4/S5 才执行，不属于本轮。
+S4 已于 2026-08-30 执行并 PASS；S5 仍未执行。
 
 至少 scripted cases：
 
@@ -1215,6 +1215,24 @@ contact metrics
 ```
 
 Smoke gate：finite、frame/sign correct、无不连续、无 basic ground crash、controller 无异常 saturation。
+
+S4 实测证据：
+
+```text
+task ID      = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs     = 1
+seed         = 42
+physics rate = 100 Hz
+policy rate  = 25 Hz
+cases        = 9/9 PASS
+NaN/Inf      = 0
+ground crash = 0
+reward path  = finite
+controller saturation ratio = 0 in all cases
+max |delta_stage| = 0.08
+```
+
+关键数值：stage ramp 的 `V_t` 单调下降、`V_down` 单调上升、`V_up` 单调下降；low-stage normal descent 被完全阻断，high-stage relative normal reference 达 `-0.2370 m/s`；recovery stage 从 `0.9880` 连续降至 `0.00158`，positive normal reference 达 `+0.2100 m/s`；terminal alpha 最大 `0.8693`，q_ref tilt 最大 `5.276 deg`，attitude-reference rate 最大约 `[0.2255, 0.1803, 0.0089] rad/s`；static yaw heading 为 `+15 deg` 且 q_vel/q_ref 同号一致；off-center contact-point feedforward correction 最大 `0.00536 m/s`。该证据只验证 S4 interface correctness，不宣称 S6/S11 formal benchmark 已完成。
 
 ---
 
@@ -1525,14 +1543,26 @@ frozen task source diff = 0
 S0 Fixed-Stage baseline freeze        = PASS
 S1 Theory Gate                        = PASS
 S2 Pure mathematical guidance        = PASS
-S3 Independent Continuous-Stage task  = PASS
+S3 Independent Continuous-Stage task = PASS
+S4 1-env deterministic smoke         = PASS
+```
+
+S4 validation：
+
+```text
+targeted regression = 71 passed
+full regression     = 171 passed + 21 subtests
+pre-S4 baseline     = 167 passed + 21 subtests
+added S4 tests      = 4
+git diff --check    = PASS
+frozen task source diff = 0
 ```
 
 下一阶段唯一允许工作：
 
 ```text
-S4
-1-env deterministic Continuous-Stage smoke
+S5
+16-env GPU Continuous-Stage smoke
 ```
 
-本轮不自动进入 S4、16-env GPU smoke、PPO training 或 PX4 SITL。
+本轮不自动进入 S5、PPO training 或 PX4 SITL。

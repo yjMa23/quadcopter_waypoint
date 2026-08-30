@@ -3,7 +3,7 @@
 > 项目：`/home/j/Isaac_RL_Projects/quadcopter_waypoint`
 > 冻结日期：2026-08-30
 > 文档性质：论文第一创新点的长期研究合同。它定义方法边界、阶段门、可证伪实验与允许/禁止的论文表述；历史 M0/M1/M2 benchmark 不因本文被改写。
-> 当前执行边界：S0–S3 已完成；下一唯一 gate 为 S4 1-env deterministic smoke。本轮 S3 不运行 smoke、不训练 PPO、不进入 PX4 SITL。
+> 当前执行边界：S0–S4 已完成；下一唯一 gate 为 S5 16-env GPU smoke。S4 仅形成 1-env deterministic smoke 证据，不训练 PPO、不进入 PX4 SITL。
 
 ---
 
@@ -634,6 +634,30 @@ deck heading
 **PASS**：NaN/Inf=0、shape/runtime 正常、stage/envelope/attitude reference 与解析预期一致、ground crash=0。
 **FAIL**：frame/sign/attitude discontinuity/controller explosion。
 **Stop condition**：修数学/接口，不训练 PPO。
+
+#### S4 validation evidence — 2026-08-30
+
+```text
+task ID      = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs     = 1
+seed         = 42
+physics rate = 100 Hz
+policy rate  = 25 Hz
+script       = scripts/rl_games/check_px4_continuous_stage_smoke.py
+```
+
+9 个 scripted cases 全部 PASS：static hover、stage ramp、constant XY deck、heave、normal descent stage ramp、roll/pitch terminal-attitude blend、static yaw heading、off-center contact-point interface、recovery。全局 gate：NaN/Inf=0、ground crash=0、reward finite、controller saturation ratio 在全部 case 中为 0、stage 单步最大变化不超过冻结的 `2.0 * 0.04 = 0.08`。
+
+关键接口证据：low-stage `V_down=0` 且负 normal action 不能绕过 stage；high-stage normal reference 达 `-0.2370 m/s`；recovery stage `0.9880 -> 0.00158` 且正 normal reference 达 `+0.2100 m/s`；terminal alpha 最大 `0.8693`，`q_ref` 最大 tilt `5.276 deg`，attitude-reference rate 最大约 `[0.2255, 0.1803, 0.0089] rad/s`；static yaw 的 deck/q_vel/q_ref heading 均约 `+15 deg`；off-center contact-point velocity correction 最大 `0.00536 m/s`。这些只构成 S4 interface smoke，不构成 S6 contact-point superiority 或 S11 rotating-yaw benchmark 证据。
+
+```text
+targeted S4 regression = 71 passed
+full regression        = 171 passed + 21 subtests
+pre-S4 baseline        = 167 passed + 21 subtests
+added S4 tests         = 4
+git diff --check       = PASS
+frozen historical source diff = 0
+```
 
 ### S5 — 16-env GPU smoke
 
