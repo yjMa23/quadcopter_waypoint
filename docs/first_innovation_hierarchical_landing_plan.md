@@ -685,6 +685,38 @@ git diff --check            = PASS
 **FAIL**：vectorization/device/dtype/reset race。
 **Stop condition**：不得进入 rotating benchmark/训练。
 
+#### S5 validation evidence — 2026-08-30
+
+```text
+task ID      = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs     = 16
+seed         = 42
+device       = cuda:0
+physics      = 100 Hz
+policy       = 25 Hz
+max |delta_stage| = 0.0799999982
+cross-env contamination = false
+partial reset isolated  = true
+NaN/Inf                  = false
+ground crash             = false
+global controller saturation ratio = 0.0
+```
+
+所有冻结 tensor contract 均满足 `shape[0]=16`、CUDA、`torch.float32`、finite。reference frame/sign gate PASS，ENU→NED 最大绝对误差 `0.0`。env 14 recovery、envs 10–11 terminal roll/pitch、env 13 off-center contact point 均验证 cross-env isolation；env 3 partial reset 仅重置自身 stage/reference/terminal-attitude/contact/controller bookkeeping。
+
+最大 velocity tracking error 为 `1.00960 m/s`，对应 env 10 `terminal_attitude_roll`；继续只记录该诊断，不修改 controller gain。最大 attitude-reference component rate 为 `1.50000 rad/s`，对应 env 12 `static_yaw_15deg`，满足冻结 yaw rate 上限。controller/reward path finite，无 numerical explosion。
+
+```text
+S5 contract tests             = 5 passed
+full regression               = 181 passed + 21 subtests
+git diff --check              = PASS
+frozen historical source diff = 0
+S5                             = PASS
+NEXT                           = S6
+```
+
+本轮不执行 S6。
+
 ### S6 — Off-center contact-point / rotating-deck deterministic benchmark
 
 **Entry gate**：S5 PASS。
@@ -822,10 +854,12 @@ weak omega×r effect → enlarge claim without off-center benchmark
 截至 2026-08-30：
 
 ```text
-S0 Fixed-Stage baseline freeze       = PASS
-S1 Theory Gate                       = PASS
-S2 Pure mathematical guidance       = PASS
+S0 Fixed-Stage baseline freeze        = PASS
+S1 Theory Gate                        = PASS
+S2 Pure mathematical guidance        = PASS
 S3 Independent Continuous-Stage task = PASS
+S4 1-env deterministic smoke         = PASS
+S5 16-env GPU Continuous-Stage smoke = PASS
 ```
 
 S3 已新增独立：
@@ -850,16 +884,18 @@ git diff --check    = PASS
 当前唯一允许的下一阶段：
 
 ```text
-S4
-1-env deterministic Continuous-Stage smoke
+S6
+moving / rotating deck formal benchmark
++ center velocity vs contact-point rigid-body compensation comparison
 ```
 
-S4 之前仍禁止：
+S6 完成前仍禁止：
 
 ```text
-16-env GPU smoke
 PPO training / checkpoint tuning
 64/256-env candidate training
 PX4 SITL
 ROS2/HIL/real vehicle
 ```
+
+当前轮次明确停止在 S5 PASS，不执行 S6。

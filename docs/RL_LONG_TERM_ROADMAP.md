@@ -838,7 +838,9 @@ docs/continuous_stage_terminal_attitude_theory.md
 S0 Fixed-Stage baseline freeze        = PASS
 S1 Theory Gate                        = PASS
 S2 Pure mathematical guidance        = PASS
-S3 Independent Continuous-Stage task  = PASS
+S3 Independent Continuous-Stage task = PASS
+S4 1-env deterministic smoke         = PASS
+S5 16-env GPU Continuous-Stage smoke = PASS
 ```
 
 S2 pure guidance 位于：
@@ -898,13 +900,39 @@ S4 之后新增一条 supplementary deterministic full-landing evidence，但它
 
 复现说明：历史 `v6` JSON 的真实 `initial_clearance_m=0.25`；一次 `0.45 m` 初始间隙运行未在 episode 结束前检测到 deck contact，因此不视为同场景 repeat。demo 默认值已冻结到实际验证的 `0.25 m`。补充证据后的 full regression 为 `176 passed + 21 subtests`，S4 no-video regression 仍为 `9/9 PASS`，`git diff --check=PASS`。这些 evidence 不替代 S5/S6/S11、PPO 或 real-world evidence。
 
-**当前唯一允许的下一阶段是 S5：**
+S5 16-env GPU Continuous-Stage smoke 已于 2026-08-30 PASS：
 
 ```text
-16-env GPU Continuous-Stage smoke
+task ID      = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs     = 16
+seed         = 42
+device       = cuda:0
+physics/policy = 100 / 25 Hz
+max |delta_stage| = 0.0799999982
+cross-env contamination = false
+partial reset isolated  = true
+NaN/Inf                  = false
+ground crash             = false
+global controller saturation ratio = 0.0
 ```
 
-S5 之前仍禁止 PPO training、64/256-env candidate 和 PX4 SITL。
+所有 required tensor 均满足 first dimension 16、CUDA、`torch.float32`、finite；ENU/NED sign/frame reconstruction 最大绝对误差 `0.0`。env 14 recovery、envs 10–11 terminal attitude 和 env 13 off-center target-contact-point 均通过 cross-env isolation，env 3 partial reset 也只影响自身状态。最大 velocity tracking error 为 `1.00960 m/s`（env 10 `terminal_attitude_roll`），只保留诊断、不修改 controller gain；最大 attitude-reference component rate 为 `1.50000 rad/s`（env 12 `static_yaw_15deg`），满足冻结 yaw rate 上限。
+
+```text
+S5 contract tests             = 5 passed
+full regression               = 181 passed + 21 subtests
+git diff --check              = PASS
+frozen historical source diff = 0
+```
+
+**当前唯一允许的下一阶段是 S6：**
+
+```text
+moving / rotating deck formal benchmark
++ center velocity vs contact-point rigid-body compensation comparison
+```
+
+本轮停止在 S5 PASS，不执行 S6。S6 之前仍禁止 PPO training、64/256-env candidate 和 PX4 SITL。
 
 仍禁止：
 

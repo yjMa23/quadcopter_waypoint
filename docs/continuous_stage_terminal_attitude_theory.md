@@ -1563,6 +1563,7 @@ S1 Theory Gate                        = PASS
 S2 Pure mathematical guidance        = PASS
 S3 Independent Continuous-Stage task = PASS
 S4 1-env deterministic smoke         = PASS
+S5 16-env GPU Continuous-Stage smoke = PASS
 ```
 
 S4 validation：
@@ -1576,11 +1577,38 @@ git diff --check    = PASS
 frozen task source diff = 0
 ```
 
+S5 validation：
+
+```text
+task ID      = Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+num_envs     = 16
+seed         = 42
+device       = cuda:0
+physics      = 100 Hz
+policy       = 25 Hz
+max |delta_stage| = 0.0799999982
+cross-env contamination = false
+partial reset isolated  = true
+NaN/Inf                  = false
+ground crash             = false
+global controller saturation ratio = 0.0
+```
+
+所有要求的 stage/reference/attitude tensor 均保持 `shape[0]=16`、CUDA、`torch.float32`、finite。ENU/NED reference sign gate 的最大绝对误差为 `0.0`。全局最大 velocity tracking error 为 `1.00960 m/s`，来自 env 10 `terminal_attitude_roll`；该值仅作为诊断保留，不据此修改 controller gain。全局最大 attitude-reference component rate 为 `1.50000 rad/s`，来自 env 12 `static_yaw_15deg`，满足冻结 yaw rate 上限。env 14 recovery、envs 10–11 terminal attitude 和 env 13 off-center contact point 的 cross-env isolation 均 PASS；env 3 partial reset 仅清对应状态。
+
+```text
+S5 contract tests             = 5 passed
+full regression               = 181 passed + 21 subtests
+git diff --check              = PASS
+frozen historical source diff = 0
+```
+
 下一阶段唯一允许工作：
 
 ```text
-S5
-16-env GPU Continuous-Stage smoke
+S6
+moving / rotating deck formal benchmark
++ center velocity vs contact-point rigid-body compensation comparison
 ```
 
-本轮不自动进入 S5、PPO training 或 PX4 SITL。
+本轮不执行 S6，也不进入 PPO training 或 PX4 SITL。

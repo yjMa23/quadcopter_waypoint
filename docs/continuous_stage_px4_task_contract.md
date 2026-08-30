@@ -1,6 +1,6 @@
 # Continuous-Stage PX4-Compatible Landing Task Contract
 
-> Scope: S3 independent task contract plus S4 1-env deterministic validation evidence. It does not claim PPO, 16-env GPU smoke, formal S6/S11 rotating-deck benchmarks, SITL, HIL, or real-vehicle evidence.
+> Scope: S3 independent task contract plus S4 1-env deterministic and S5 16-env GPU vectorization validation evidence. It does not claim PPO, formal S6/S11 rotating-deck benchmarks, SITL, HIL, or real-vehicle evidence.
 
 ## Task identity and inheritance boundary
 
@@ -213,3 +213,24 @@ git diff --check            = PASS
 ```
 
 This supplementary evidence does not replace S5 16-env vectorization validation, S6 moving/rotating contact-point benchmark, S11 rotating-yaw benchmark, PPO evidence, or real-world evidence.
+
+## S5 16-env GPU smoke evidence
+
+S5 was executed on `cuda:0` with `num_envs=16`, `seed=42`, `physics=100 Hz`, `policy=25 Hz`, and deterministic batched scenario assignment. The smoke uses the production Continuous-Stage task/reference/controller path and does not run or load PPO/checkpoints.
+
+All required stage/reference/attitude tensors had first dimension 16, stayed on CUDA with `torch.float32`, and remained finite. Global `max |delta_stage| = 0.0799999982`, satisfying the frozen `2.0 1/s * 0.04 s = 0.08` limit. ENU-to-NED reference reconstruction error was exactly `0.0` in the recorded run.
+
+Cross-env isolation passed for three targeted perturbations: env 14 recovery changed only its own stage/reference state; envs 10–11 terminal roll/pitch references did not contaminate the other 14 envs; and env 13 off-center target-contact-point modification left all other contact points unchanged. A partial reset of env 3 also left non-reset stage/reference/attitude/contact/controller state unchanged while clearing only env 3, so `cross_env_contamination=false` and `partial_reset_isolated=true`.
+
+The global maximum velocity-tracking error was `1.00960 m/s` in env 10 (`terminal_attitude_roll`). This is recorded as a diagnostic, not a new tuning threshold; controller gains were not modified. The global maximum attitude-reference component rate was `1.50000 rad/s` in env 12 (`static_yaw_15deg`), matching the frozen yaw rate bound. Global controller saturation ratio was `0.0`; `NaN/Inf=false`, `ground_crash=false`, controller/reward paths were finite, and no numerical explosion was observed. Runtime values are smoke diagnostics only, not performance claims.
+
+```text
+S5 contract tests             = 5 passed
+full regression               = 181 passed + 21 subtests
+git diff --check              = PASS
+frozen historical source diff = 0
+S5 status                     = PASS
+NEXT                          = S6 (not executed here)
+```
+
+S5 establishes vectorized execution correctness/isolation only. It does not establish moving/rotating-deck superiority, contact-point-compensation benefit, PPO quality, SITL/HIL, or real-world deployment.
