@@ -1,7 +1,7 @@
 # RL 研究长期路线图：运动船舶甲板自主降落
 
 > 项目：`/home/j/Isaac_RL_Projects/quadcopter_waypoint`  
-> 更新时间：2026-08-23  
+> 更新时间：2026-08-30
 > 文档用途：只描述 RL 研究线尚未完成的长期任务、统一指标、阶段门和停止条件。  
 > 当前事实与历史结果仍以根 `README.md`、各理论文档及 `benchmarks/` 中冻结实验包为准；本文件不得改写历史 benchmark 语义。
 
@@ -378,70 +378,199 @@ policy inference latency
 
 ---
 
-# 阶段 D：PX4-Compatible Deployable Hierarchical RL
+# 阶段 D：论文第一创新点 — Continuous-Stage PX4-Compatible Hierarchical RL
 
 ## 目标
 
-保留当前 `22D → 4D thrust/moment` Direct RL 为永久冻结的重要 baseline，同时新增一个**独立方法**，使 RL action 可以不改变物理语义地通过 PX4 标准 Offboard reference interface 部署。
+保留 `22D → 4D thrust/moment` Direct RL 为永久 baseline，并把当前已经实现、但 D1 sanity 失败的 3D-velocity M2 冻结为：
 
-2026-08-23 的架构决策将原先“先只输出 `vz_ref`、不足时再扩展 xyz”的候选方案更新为第一版直接使用 deck-relative 3D velocity reference：
+```text
+Fixed-Stage PX4-Compatible Hierarchical RL baseline
+```
+
+毕业论文第一创新点正式升级为：
+
+> **面向移动旋转甲板的三维相对速度分层强化学习着陆参考规划方法**
+
+最终 architecture：
 
 ```text
 deployable relative state
         ↓
 Hierarchical RL
-        ↓
-[v_t1_rel_ref, v_t2_rel_ref, v_n_rel_ref]
-        ↓
-PX4-compatible Reference Adapter
-        ↓
-world/ENU velocity reference
-        ↓
-training: Vectorized PX4-like controller
-SITL/HIL/real: PX4 Offboard velocity controller
+   ↙             ↘
+3-D deck-relative  continuous landing stage s∈[0,1]
+velocity reference
+   \             /
+      Reference Planner
+       ↙         ↘
+contact-point   terminal attitude
+compensation    guidance
+       \         /
+            PX4
+ velocity / attitude / rate / allocation
 ```
 
-其中 `t1/t2/n` 属于 deck frame；policy 不学习 yaw，yaw 由 deterministic rule 提供。完整理论、坐标系、contact-point velocity、action bounds、安全门、训练/部署 backend 区分和测试协议以 `docs/px4_compatible_hierarchical_rl_theory.md` 为唯一实现前置文档。
-
-明确：
+系统边界固定：
 
 ```text
-Direct RL != deprecated
-Hierarchical RL is a new independent method
+RL learns:
+- 3-D deck-relative motion
+- continuous landing commitment
+
+Analytical guidance handles:
+- rigid-body contact-point compensation
+- deterministic terminal deck-normal/deck-heading alignment
+
+PX4 handles:
+- low-level stabilization
+- attitude/rate control
+- allocation/motor control
 ```
 
-不得把已有 4D thrust/moment checkpoint 直接解释成 3D velocity policy，也不从第一版扩展成 motor-level policy。
+完整长期研究合同：
+
+```text
+docs/first_innovation_hierarchical_landing_plan.md
+```
+
+S1 数学 Theory Gate：
+
+```text
+docs/continuous_stage_terminal_attitude_theory.md
+```
+
+当前 `docs/px4_compatible_hierarchical_rl_theory.md` 继续作为 Fixed-Stage 3-D velocity action/controller 的历史理论与实现依据，不删除、不改写 benchmark 语义。
+
+## 关键方法变化
+
+新 policy action：
+
+```text
+[a_t1, a_t2, a_n, a_stage]
+```
+
+前三维仍映射为 deck-frame relative velocity；第四维只映射为内部 filtered stage：
+
+```text
+s ∈ [0,1]
+```
+
+stage 连续塑形：
+
+```text
+normal descent envelope
+tangential velocity envelope
+reference slew envelope
+terminal attitude alignment weight
+```
+
+不再以 hard `can_land` 作为下降 shaping 的总开关。
+
+Observation dimension 第一版仍为 22，但：
+
+```text
+old index 15 = align_success
+new index 15 = previous filtered stage s_{t-1}
+```
+
+旧 M2 checkpoint 禁止重解释为新 task checkpoint。
+
+## Terminal attitude 与 PX4 boundary
+
+姿态不由 RL 学习。正常 flight 使用 velocity-controller attitude `R_vel`；临近接触时根据：
+
+```text
+alpha = f(stage, surface_clearance)
+```
+
+连续趋向 deck attitude / deck heading，并显式限制 tilt 与 attitude-reference rate。
+
+部署优先：
+
+```text
+Route A:
+velocity-level PX4 deployment
++ attitude-shaping acceleration/feedforward guidance
+```
+
+如果 PX4 source/SITL 证明 Route A 不能实现所需 terminal attitude shaping，才使用 fallback：
+
+```text
+Route B:
+approach = PX4 velocity mode
+terminal = PX4 attitude-setpoint mode
+```
+
+仓库当前没有 Route A 的 PX4 source/SITL 实证，因此任何具体内部行为必须等 S12 source/interface gate 验证，禁止虚构。
+
+## Landing safety migration
+
+连续 stage 属于 learned decision；landing success 仍是 deterministic physical contract。
+
+旋转甲板的 rotational touchdown metric 从旧 baseline 的 absolute UAV angular velocity，升级为：
+
+```text
+omega_rel = omega_uav - omega_deck
+```
+
+并与 deck-frame position、normal/tangential relative velocity、body-deck attitude、physical contact、hard-contact/penetration/ground-contact 一起判定。
+
+## 固定 S0–S15 顺序
+
+```text
+S0  Freeze current Fixed-Stage M2 baseline
+S1  Continuous-Stage + Terminal-Attitude Theory Gate
+S2  Pure mathematical stage/attitude utilities + unit tests
+S3  Independent Continuous-Stage task
+S4  1-env deterministic smoke
+S5  16-env GPU smoke
+S6  Off-center contact-point / rotating-deck deterministic benchmark
+S7  64-env / seed42 / 30-iteration PPO sanity
+S8  256-env / 100-200 iteration candidate + >=3 seeds
+S9  Fixed-stage vs continuous-stage ablation
+S10 deck-center vs contact-point compensation ablation
+S11 yaw / rotating-deck benchmark
+S12 PX4 SITL source/interface validation
+S13 surrogate vs PX4 SITL comparison
+S14 perception / dynamics uncertainty
+S15 thesis formal benchmark
+```
+
+每阶段 entry gate、deliverable、PASS/FAIL、stop condition 已在第一创新点长期文档中冻结；禁止跨 gate 直接进入长训或 SITL。
 
 ## 与 Direct RL 的正式比较
 
 ```text
 Direct RL: 22D → thrust + Mx/My/Mz
-Hierarchical RL: estimated/predicted state → landing decision + velocity reference
+Fixed-Stage M2: 22D → 3D relative velocity + hard landing phase
+Continuous-Stage method: 22D → 3D relative velocity + learned continuous stage
 ```
 
-比较：
+正式比较至少报告：
 
 ```text
-nominal success
-Sea-State robustness
-perception robustness
-dynamics mismatch robustness
-safety violations
-control smoothness
+nominal settled landing
+post-latch/stage recovery
+timeout
+reference smoothness
+controller tracking
+contact kinematics / safety
+Sea-State / perception / dynamics robustness
 inference cost
-PX4 integration effort
+PX4 integration boundary
 ```
 
-## 基本验收
-
-Hierarchical RL 在 deterministic benchmark 上不要求机械超过 96.74%，但应满足：
+Nominal candidate 仍应达到：
 
 ```text
-settled landing >= 95% 或与 Direct RL 差距 <= 2 pp
+settled landing >= 95%
+或与 Direct 96.74% reference 差距 <= 2 pp
 ground crash = 0
+hard contact 无明显统计性恶化
 ```
 
-且至少在一个 distribution-shift 维度上表现出更好的鲁棒性、安全性或部署可解释性，否则不把它作为论文主方法。
+只有 S9/S10/S11 等正式 ablation 解锁对应论文 claim。
 
 ---
 
@@ -630,58 +759,101 @@ Combined representative shift
 
 ## 6. 当前唯一下一任务
 
-2026-08-23 已完成 PX4-Compatible Hierarchical RL 从 action-interface 到 PPO 前置证据的 Stage 0~2：
+截至 2026-08-30，PX4-compatible 分层 RL 已形成完整的 Fixed-Stage evidence chain：
 
 ```text
-theory gate                          = PASS
-Reference Adapter unit tests         = PASS
-Vectorized PX4-like controller tests = PASS
-independent 3D-action task           = IMPLEMENTED
-1-env deterministic smoke            = PASS
-16-env GPU-vectorized smoke           = PASS
-post-evaluator full regression        = 116 tests + 21 subtests PASS
-M2 evaluator terminal diagnostics     = IMPLEMENTED / TESTED
-16-env zero-relative-action baseline  = PASS
+3-D relative velocity action                     = IMPLEMENTED
+Reference Adapter                                = PASS
+Vectorized PX4-like controller                   = PASS
+1-env / 16-env smoke                             = PASS
+zero-relative-action baseline                    = PASS
+M2 evaluator / terminal diagnostics              = IMPLEMENTED
+D0 reward audit                                  = D0-B supported
+D1 reward-only recovery gate                     = implemented / tested
+D1 full regression                               = 128 passed + 21 subtests
+D1 sanity                                        = FAIL
 ```
 
-Zero-action 四场景均表现为 `timeout=100%`、`contact=0`、`settled=0`、`hard_contact=0`、`ground_crash=0`、reference/controller saturation=0；因此该 baseline 只是 deck contact-point velocity following，不会自己完成下降与落地。
-
-证据入口：
+D1 ep30 关键固定评估：
 
 ```text
-docs/px4_compatible_hierarchical_rl_theory.md
-benchmarks/px4_hierarchical_smoke/
-benchmarks/px4_hierarchical_training/
+align                    = 48.44%
+crash                    = 1.56%
+deck miss                = 0%
+ground crash             = 0%
+hard contact             = 0%
+settled landing          = 0%
+timeout                  = 98.44%
+controller tracking mean = 0.4425 m/s
 ```
 
-随后已执行 `seed=42 / num_envs=64 / max_iterations=30` PPO sanity，结果为：
+D1 已显著修复原先 `predicted_pad_error/contact_clearance` 主导的 reward compatibility 问题，但没有解决：
 
 ```text
-SANITY FAIL
-reward: -2.95 (iter 1) → -60.92 (iter 30)
-settled landing: 0 throughout
-fixed-seed ep10/20/30: settled=0%, crash=100%
-controller saturation: all five = 0%
-ep30 deterministic reference saturation: 48.8%
+within-bound high-variation reference
+controller tracking degradation
+post-latch horizontal drift
+reward-gate crossing among aligned episodes
+descent completion failure
 ```
 
-因此当前唯一允许的下一步属于用户规定的：
+因此当前 3D-action task 正式冻结为：
 
-> **A. M2 nominal capability still insufficient → continue one-variable-at-a-time training/controller diagnosis**
+```text
+Fixed-Stage PX4-Compatible Hierarchical RL baseline
+```
 
-当前诊断停在 Case C，而不是 controller 或 reward：M2 继承的 `continuous_a2c_logstd` 以 `sigma_init.val=0` 开始，探索 std 约为 1 个 normalized action unit，训练 checkpoint 的 `exp(sigma)` 仍约 `0.97~1.21`；ep30 deterministic policy 三轴均触及 action bound。下一实验只允许把 **M2 独立 PPO config** 的 `sigma_init.val` 从 `0` 改为 `-1.0`，其余 action range/scaling、controller、reward、network、lr、success/contact contract 均冻结，然后重新执行相同 64-env / seed-42 / 30-iteration sanity。
+不再继续通过 D2/D3 人工 `align_success/can_land` 阈值 patch 构造论文主方法。
 
-禁止直接进入 256-env / 100~200 iteration C0，更禁止 PX4 SITL。只有后续 sanity PASS、candidate validation 和 M2 nominal benchmark PASS 后，路线才可切换到 B（exported policy → PX4 SITL）。
+毕业论文第一创新点已经转向：
+
+```text
+3-D deck-relative velocity
++
+continuous learned landing stage
++
+contact-point rigid-body compensation
++
+terminal deck-attitude guidance
++
+PX4 low-level reuse
+```
+
+S0/S1 文档入口：
+
+```text
+docs/first_innovation_hierarchical_landing_plan.md
+docs/continuous_stage_terminal_attitude_theory.md
+```
+
+**本轮 Theory Gate 完成后，唯一允许的下一阶段是 S2：**
+
+```text
+pure mathematical Continuous Landing Stage
++
+pure Terminal Attitude Guidance
++
+unit tests
+```
+
+预计新增功能导向 pure utility：
+
+```text
+source/quadcopter_waypoint/quadcopter_waypoint/utils/continuous_landing_stage.py
+```
+
+S2 只允许纯数学：stage mapping/filter、stage-conditioned velocity envelope、stage-conditioned slew、terminal alignment weight、必要 quaternion/attitude reference math、relative angular velocity。不得引入 Isaac Sim/Gym/ROS2/PX4 runtime/RL-Games，也不得复制 `v_deck + omega×r`。
 
 仍禁止：
 
 ```text
-修改 M0/M1 checkpoint 或 action semantics
-改写 Sea-State 历史 benchmark
-把 smoke 写成 PPO success result
-4096× PX4 SITL training
-第一版学习 yaw / motor action
-在没有小规模 sanity 的情况下直接启动正式大规模 PPO
+D2/D3 hard-gate patch
+64/256-env training before pure-math/task/smoke gates
+100-200 iteration candidate before S7 sanity PASS
+PX4 SITL before S8 nominal candidate PASS
+修改 M0/M1/Fixed-Stage M2 历史 benchmark
+把 old M2 checkpoint 重解释为 Continuous-Stage checkpoint
+让 RL 直接学习 yaw/attitude/torque/motor action
 ```
 
-Sea-State Controlled Robustness Boundary Closure 仍保留为后续研究任务；本次顺序调整不否定、删除或重写已有 Sea-State 结论与资产。
+Sea-State、Perception-Aware、Dynamics Randomization 等长期研究线仍保留；第一创新点的 S0–S15 顺序只约束 PX4-compatible hierarchical 主方法的内部推进，不删除其他已冻结路线。
