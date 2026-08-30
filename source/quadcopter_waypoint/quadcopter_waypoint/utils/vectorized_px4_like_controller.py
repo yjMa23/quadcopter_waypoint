@@ -13,7 +13,7 @@ import math
 
 import torch
 
-from quadcopter_waypoint.utils.physical_deck_attitude_math import quat_apply
+from quadcopter_waypoint.utils.physical_deck_attitude_math import quat_apply, quat_from_rotation_matrix
 
 
 @dataclass(frozen=True)
@@ -110,7 +110,25 @@ def _desired_rotation_from_thrust_and_yaw(
     yaw_ref_enu: float,
     max_tilt_rad: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return desired world-from-body rotation, limited specific force, and tilt saturation mask."""
+    """Return desired world-from-body rotation using the shared explicit-heading implementation."""
+    heading = desired_specific_force_w.new_tensor(
+        [math.cos(yaw_ref_enu), math.sin(yaw_ref_enu), 0.0]
+    ).expand_as(desired_specific_force_w)
+    return _desired_rotation_from_thrust_and_heading(desired_specific_force_w, heading, max_tilt_rad)
+
+
+def _desired_rotation_from_thrust_and_heading(
+    desired_specific_force_w: torch.Tensor,
+    heading_world: torch.Tensor,
+    max_tilt_rad: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return velocity-control attitude using an explicit deterministic world heading."""
+    _require_vector3("heading_world", heading_world)
+    if heading_world.shape != desired_specific_force_w.shape:
+        raise ValueError("heading_world must match desired specific-force batch shape")
+    if heading_world.device != desired_specific_force_w.device or heading_world.dtype != desired_specific_force_w.dtype:
+        raise ValueError("heading_world must match desired specific-force device and dtype")
+
     force = desired_specific_force_w.clone()
     horizontal = force[..., :2]
     horizontal_norm = torch.linalg.norm(horizontal, dim=-1, keepdim=True)
@@ -121,7 +139,11 @@ def _desired_rotation_from_thrust_and_yaw(
     force = torch.cat((horizontal * horizontal_scale, vertical), dim=-1)
 
     body_z_des = force / torch.linalg.norm(force, dim=-1, keepdim=True).clamp_min(1.0e-9)
-    heading = force.new_tensor([math.cos(yaw_ref_enu), math.sin(yaw_ref_enu), 0.0]).expand_as(force)
+    heading = heading_world.clone()
+    heading[..., 2] = 0.0
+    heading_norm = torch.linalg.norm(heading, dim=-1, keepdim=True)
+    world_x = force.new_tensor([1.0, 0.0, 0.0]).expand_as(force)
+    heading = torch.where(heading_norm >= 1.0e-6, heading / heading_norm.clamp_min(1.0e-9), world_x)
     body_y_des = torch.cross(body_z_des, heading, dim=-1)
     body_y_norm = torch.linalg.norm(body_y_des, dim=-1, keepdim=True)
     fallback_heading = force.new_tensor([0.0, 1.0, 0.0]).expand_as(force)
@@ -131,6 +153,64 @@ def _desired_rotation_from_thrust_and_yaw(
     body_x_des = torch.cross(body_y_des, body_z_des, dim=-1)
     rotation_wb_des = torch.stack((body_x_des, body_y_des, body_z_des), dim=-1)
     return rotation_wb_des, force, tilt_saturated
+
+
+def _velocity_attitude_state(
+    config: VectorizedPx4LikeControllerConfig,
+    velocity_reference_w: torch.Tensor,
+    current_velocity_w: torch.Tensor,
+    gravity_magnitude: torch.Tensor | float,
+    current_acceleration_w: torch.Tensor | None = None,
+    heading_world: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Compute the shared velocity-loop state used by both normal and terminal-attitude paths."""
+    _require_vector3("velocity_reference_w", velocity_reference_w)
+    _require_vector3("current_velocity_w", current_velocity_w)
+    if velocity_reference_w.shape != current_velocity_w.shape:
+        raise ValueError("velocity reference and current velocity must have identical shapes")
+
+    velocity_error = velocity_reference_w - current_velocity_w
+    acceleration_command = _as_gain(config.velocity_gain, current_velocity_w) * velocity_error
+    derivative_gain = _as_gain(config.velocity_derivative_gain, current_velocity_w)
+    if bool(torch.any(derivative_gain != 0.0)):
+        if current_acceleration_w is None:
+            raise ValueError("current_acceleration_w is required when velocity_derivative_gain is non-zero")
+        _require_vector3("current_acceleration_w", current_acceleration_w)
+        if current_acceleration_w.shape != current_velocity_w.shape:
+            raise ValueError("current_acceleration_w must match velocity batch shape")
+        acceleration_command = acceleration_command - derivative_gain * current_acceleration_w
+
+    acceleration_command, acceleration_saturated = _clamp_vector_norm(acceleration_command, config.max_acceleration)
+    if isinstance(gravity_magnitude, torch.Tensor):
+        if not bool(torch.all(torch.isfinite(gravity_magnitude))) or bool(torch.any(gravity_magnitude <= 0.0)):
+            raise ValueError("gravity_magnitude tensor must contain positive finite values")
+        gravity = gravity_magnitude.to(device=current_velocity_w.device, dtype=current_velocity_w.dtype)
+    else:
+        if not math.isfinite(gravity_magnitude) or gravity_magnitude <= 0.0:
+            raise ValueError("gravity_magnitude must be positive and finite")
+        gravity = current_velocity_w.new_tensor(gravity_magnitude)
+    while gravity.ndim < current_velocity_w.ndim - 1:
+        gravity = gravity.unsqueeze(-1)
+
+    desired_specific_force = acceleration_command.clone()
+    desired_specific_force[..., 2] += gravity
+    if heading_world is None:
+        desired_rotation_wb, limited_specific_force, tilt_saturated = _desired_rotation_from_thrust_and_yaw(
+            desired_specific_force, config.yaw_ref_enu, config.max_tilt_rad
+        )
+    else:
+        desired_rotation_wb, limited_specific_force, tilt_saturated = _desired_rotation_from_thrust_and_heading(
+            desired_specific_force, heading_world, config.max_tilt_rad
+        )
+    return (
+        desired_rotation_wb,
+        limited_specific_force,
+        velocity_error,
+        acceleration_command,
+        gravity,
+        acceleration_saturated,
+        tilt_saturated,
+    )
 
 
 def _rotation_matrix_from_quaternion(quat_wxyz: torch.Tensor) -> torch.Tensor:
@@ -171,6 +251,41 @@ class VectorizedPx4LikeController:
         config.validate()
         self.config = config
 
+    def compute_velocity_attitude_reference(
+        self,
+        velocity_reference_w: torch.Tensor,
+        current_velocity_w: torch.Tensor,
+        gravity_magnitude: torch.Tensor | float,
+        current_acceleration_w: torch.Tensor | None = None,
+        heading_world: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Expose the normal velocity-controller attitude without running attitude/rate control."""
+        (
+            desired_rotation_wb,
+            limited_specific_force,
+            velocity_error,
+            acceleration_command,
+            _gravity,
+            acceleration_saturated,
+            tilt_saturated,
+        ) = _velocity_attitude_state(
+            self.config,
+            velocity_reference_w,
+            current_velocity_w,
+            gravity_magnitude,
+            current_acceleration_w=current_acceleration_w,
+            heading_world=heading_world,
+        )
+        attitude_reference_wxyz = quat_from_rotation_matrix(desired_rotation_wb)
+        diagnostics = {
+            "velocity_error_w": velocity_error,
+            "acceleration_command_w": acceleration_command,
+            "desired_specific_force_w": limited_specific_force,
+            "acceleration_saturated": acceleration_saturated,
+            "tilt_saturated": tilt_saturated,
+        }
+        return attitude_reference_wxyz, diagnostics
+
     def compute(
         self,
         velocity_reference_w: torch.Tensor,
@@ -181,6 +296,7 @@ class VectorizedPx4LikeController:
         inertia_b: torch.Tensor,
         gravity_magnitude: torch.Tensor | float,
         current_acceleration_w: torch.Tensor | None = None,
+        attitude_reference_wxyz: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
         """Compute body-FLU thrust and moment for a batch of vehicles.
 
@@ -189,54 +305,38 @@ class VectorizedPx4LikeController:
         rigid-body wrench path without changing the frozen Direct task.
         """
         for name, tensor in (
-            ("velocity_reference_w", velocity_reference_w),
-            ("current_velocity_w", current_velocity_w),
             ("current_angular_velocity_b", current_angular_velocity_b),
         ):
             _require_vector3(name, tensor)
         _require_quaternion("current_quat_wxyz", current_quat_wxyz)
-        if velocity_reference_w.shape != current_velocity_w.shape:
-            raise ValueError("velocity reference and current velocity must have identical shapes")
         if current_angular_velocity_b.shape != current_velocity_w.shape:
             raise ValueError("angular velocity and linear velocity batch shapes must match")
         if current_quat_wxyz.shape[:-1] != current_velocity_w.shape[:-1]:
             raise ValueError("quaternion and velocity batch shapes must match")
 
-        velocity_error = velocity_reference_w - current_velocity_w
-        velocity_gain = _as_gain(self.config.velocity_gain, current_velocity_w)
-        acceleration_command = velocity_gain * velocity_error
-
-        derivative_gain = _as_gain(self.config.velocity_derivative_gain, current_velocity_w)
-        if bool(torch.any(derivative_gain != 0.0)):
-            if current_acceleration_w is None:
-                raise ValueError("current_acceleration_w is required when velocity_derivative_gain is non-zero")
-            _require_vector3("current_acceleration_w", current_acceleration_w)
-            if current_acceleration_w.shape != current_velocity_w.shape:
-                raise ValueError("current_acceleration_w must match velocity batch shape")
-            acceleration_command = acceleration_command - derivative_gain * current_acceleration_w
-
-        acceleration_command, acceleration_saturated = _clamp_vector_norm(
-            acceleration_command, self.config.max_acceleration
+        (
+            velocity_rotation_wb,
+            limited_specific_force,
+            velocity_error,
+            acceleration_command,
+            gravity,
+            acceleration_saturated,
+            tilt_saturated,
+        ) = _velocity_attitude_state(
+            self.config,
+            velocity_reference_w,
+            current_velocity_w,
+            gravity_magnitude,
+            current_acceleration_w=current_acceleration_w,
         )
-
-        if isinstance(gravity_magnitude, torch.Tensor):
-            if not bool(torch.all(torch.isfinite(gravity_magnitude))) or bool(torch.any(gravity_magnitude <= 0.0)):
-                raise ValueError("gravity_magnitude tensor must contain positive finite values")
-            gravity = gravity_magnitude.to(device=current_velocity_w.device, dtype=current_velocity_w.dtype)
-        else:
-            if not math.isfinite(gravity_magnitude) or gravity_magnitude <= 0.0:
-                raise ValueError("gravity_magnitude must be positive and finite")
-            gravity = current_velocity_w.new_tensor(gravity_magnitude)
-        while gravity.ndim < current_velocity_w.ndim - 1:
-            gravity = gravity.unsqueeze(-1)
-        desired_specific_force = acceleration_command.clone()
-        desired_specific_force[..., 2] += gravity
-
-        desired_rotation_wb, limited_specific_force, tilt_saturated = _desired_rotation_from_thrust_and_yaw(
-            desired_specific_force,
-            self.config.yaw_ref_enu,
-            self.config.max_tilt_rad,
-        )
+        desired_rotation_wb = velocity_rotation_wb
+        if attitude_reference_wxyz is not None:
+            _require_quaternion("attitude_reference_wxyz", attitude_reference_wxyz)
+            if attitude_reference_wxyz.shape != current_quat_wxyz.shape:
+                raise ValueError("attitude_reference_wxyz must match current quaternion shape")
+            if attitude_reference_wxyz.device != current_quat_wxyz.device or attitude_reference_wxyz.dtype != current_quat_wxyz.dtype:
+                raise ValueError("attitude_reference_wxyz must match current quaternion device and dtype")
+            desired_rotation_wb = _rotation_matrix_from_quaternion(attitude_reference_wxyz)
 
         if isinstance(mass, torch.Tensor):
             if not bool(torch.all(torch.isfinite(mass))) or bool(torch.any(mass <= 0.0)):

@@ -3,7 +3,7 @@ import math
 import pytest
 import torch
 
-from quadcopter_waypoint.utils.physical_deck_attitude_math import quat_from_euler_xyz
+from quadcopter_waypoint.utils.physical_deck_attitude_math import quat_apply, quat_from_euler_xyz
 from quadcopter_waypoint.utils.vectorized_px4_like_controller import (
     VectorizedPx4LikeController,
     VectorizedPx4LikeControllerConfig,
@@ -186,6 +186,79 @@ def test_large_batch_is_vectorized_and_finite():
     assert diagnostics["body_rate_reference_b"].shape == (batch, 3)
     assert torch.all(torch.isfinite(thrust))
     assert torch.all(torch.isfinite(moment))
+
+
+def test_exposed_velocity_attitude_reference_matches_default_compute_path():
+    controller = VectorizedPx4LikeController()
+    reference = _tensor([[0.35, -0.20, 0.15], [-0.25, 0.10, -0.05]])
+    current_velocity = _tensor([[0.05, -0.02, 0.01], [0.02, 0.03, -0.01]])
+    current_quat = _identity_quat(2)
+    current_rate = _tensor([[0.1, -0.05, 0.02], [-0.08, 0.04, -0.01]])
+    inputs = dict(
+        velocity_reference_w=reference,
+        current_velocity_w=current_velocity,
+        current_quat_wxyz=current_quat,
+        current_angular_velocity_b=current_rate,
+        mass=_tensor([0.03, 0.032]),
+        inertia_b=_inertia(2),
+        gravity_magnitude=9.81,
+    )
+    thrust_default, moment_default, diagnostics_default = controller.compute(**inputs)
+    q_velocity, attitude_diagnostics = controller.compute_velocity_attitude_reference(
+        velocity_reference_w=reference,
+        current_velocity_w=current_velocity,
+        gravity_magnitude=9.81,
+    )
+    thrust_explicit, moment_explicit, diagnostics_explicit = controller.compute(
+        **inputs, attitude_reference_wxyz=q_velocity
+    )
+    torch.testing.assert_close(thrust_explicit, thrust_default, atol=1.0e-12, rtol=1.0e-12)
+    torch.testing.assert_close(moment_explicit, moment_default, atol=1.0e-12, rtol=1.0e-12)
+    torch.testing.assert_close(
+        diagnostics_explicit["body_rate_reference_b"],
+        diagnostics_default["body_rate_reference_b"],
+        atol=1.0e-12,
+        rtol=1.0e-12,
+    )
+    torch.testing.assert_close(
+        attitude_diagnostics["velocity_error_w"], diagnostics_default["velocity_error_w"], atol=0.0, rtol=0.0
+    )
+
+
+def test_velocity_attitude_reference_accepts_deterministic_heading():
+    controller = VectorizedPx4LikeController()
+    heading = _tensor([[0.0, 1.0, 0.0]])
+    q_velocity, diagnostics = controller.compute_velocity_attitude_reference(
+        velocity_reference_w=_tensor([[0.0, 0.0, 0.0]]),
+        current_velocity_w=_tensor([[0.0, 0.0, 0.0]]),
+        gravity_magnitude=9.81,
+        heading_world=heading,
+    )
+    body_x = quat_apply(q_velocity, _tensor([[1.0, 0.0, 0.0]]))
+    torch.testing.assert_close(body_x, heading, atol=1.0e-12, rtol=1.0e-12)
+    assert q_velocity.dtype == torch.float64
+    assert q_velocity.device.type == "cpu"
+    assert not bool(diagnostics["tilt_saturated"][0])
+
+
+def test_external_attitude_reference_changes_moment_but_not_velocity_thrust():
+    controller = VectorizedPx4LikeController()
+    reference = _tensor([[0.0, 0.0, 0.0]])
+    common = dict(
+        velocity_reference_w=reference,
+        current_velocity_w=torch.zeros_like(reference),
+        current_quat_wxyz=_identity_quat(1),
+        current_angular_velocity_b=torch.zeros_like(reference),
+        mass=0.03,
+        inertia_b=_inertia(1),
+        gravity_magnitude=9.81,
+    )
+    thrust_default, moment_default, _ = controller.compute(**common)
+    external = quat_from_euler_xyz(_tensor([math.radians(5.0)]), _tensor([0.0]), _tensor([0.0]))
+    thrust_external, moment_external, _ = controller.compute(**common, attitude_reference_wxyz=external)
+    torch.testing.assert_close(thrust_external, thrust_default, atol=1.0e-12, rtol=1.0e-12)
+    torch.testing.assert_close(moment_default, torch.zeros_like(moment_default), atol=1.0e-12, rtol=0.0)
+    assert float(torch.linalg.norm(moment_external)) > 0.0
 
 
 def test_nonzero_integral_gain_is_rejected_until_anti_windup_is_defined():

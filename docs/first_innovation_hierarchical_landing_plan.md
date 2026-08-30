@@ -3,7 +3,7 @@
 > 项目：`/home/j/Isaac_RL_Projects/quadcopter_waypoint`
 > 冻结日期：2026-08-30
 > 文档性质：论文第一创新点的长期研究合同。它定义方法边界、阶段门、可证伪实验与允许/禁止的论文表述；历史 M0/M1/M2 benchmark 不因本文被改写。
-> 当前执行边界：本轮只完成 S1 Theory Gate，不实现新任务、不长训、不进入 PX4 SITL。
+> 当前执行边界：S0–S3 已完成；下一唯一 gate 为 S4 1-env deterministic smoke。本轮 S3 不运行 smoke、不训练 PPO、不进入 PX4 SITL。
 
 ---
 
@@ -775,31 +775,49 @@ weak omega×r effect → enlarge claim without off-center benchmark
 
 ---
 
-## 20. 本轮结束后的唯一推荐下一步
+## 20. 当前 gate 状态与唯一推荐下一步
 
-S1 PASS 后，下一阶段只能是：
+截至 2026-08-30：
 
 ```text
-S2 pure mathematical implementation
-+
-unit tests
+S0 Fixed-Stage baseline freeze       = PASS
+S1 Theory Gate                       = PASS
+S2 Pure mathematical guidance       = PASS
+S3 Independent Continuous-Stage task = PASS
 ```
 
-预计新增：
+S3 已新增独立：
 
 ```text
-source/quadcopter_waypoint/quadcopter_waypoint/utils/continuous_landing_stage.py
+Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+22-D observation -> 4-D high-level action
 ```
 
-或同等功能导向命名；职责只包括纯数学 stage/filter/envelope/slew/terminal-alignment weight 与必要姿态参考数学。
+并完成：continuous stage caller-owned filter、stage-conditioned relative velocity/slew、contact-point adapter reuse、25 Hz terminal attitude reference、100 Hz PX4-like attitude/rate reuse、relative-angular touchdown success migration、continuous reward boundary和独立 scratch PPO config。Frozen Direct / PhysicalDeckAttitude / Fixed-Stage M2 task source未修改。
 
-禁止在 S2 pure utility 中引入：
+S3 验证：
 
 ```text
-Isaac Sim
-Gym
-ROS2
-PX4 runtime
-RL-Games
-environment reward
+targeted regression = 82 passed
+full regression     = 167 passed + 21 subtests
+pre-S3 baseline     = 155 passed + 21 subtests
+added S3 tests      = 12
+git diff --check    = PASS
+```
+
+当前唯一允许的下一阶段：
+
+```text
+S4
+1-env deterministic Continuous-Stage smoke
+```
+
+S4 之前仍禁止：
+
+```text
+16-env GPU smoke
+PPO training / checkpoint tuning
+64/256-env candidate training
+PX4 SITL
+ROS2/HIL/real vehicle
 ```

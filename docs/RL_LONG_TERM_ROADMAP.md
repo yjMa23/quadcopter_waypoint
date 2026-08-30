@@ -440,6 +440,12 @@ S1 数学 Theory Gate：
 docs/continuous_stage_terminal_attitude_theory.md
 ```
 
+S3 independent task implementation contract：
+
+```text
+docs/continuous_stage_px4_task_contract.md
+```
+
 当前 `docs/px4_compatible_hierarchical_rl_theory.md` 继续作为 Fixed-Stage 3-D velocity action/controller 的历史理论与实现依据，不删除、不改写 benchmark 语义。
 
 ## 关键方法变化
@@ -829,37 +835,46 @@ docs/continuous_stage_terminal_attitude_theory.md
 截至 2026-08-30，当前 gate：
 
 ```text
-S0 Fixed-Stage baseline freeze = PASS
-S1 Theory Gate                 = PASS
-S2 Pure mathematical guidance = PASS
+S0 Fixed-Stage baseline freeze        = PASS
+S1 Theory Gate                        = PASS
+S2 Pure mathematical guidance        = PASS
+S3 Independent Continuous-Stage task  = PASS
 ```
 
-S2 已新增：
+S2 pure guidance 位于：
 
 ```text
 source/quadcopter_waypoint/quadcopter_waypoint/utils/continuous_landing_stage.py
 ```
 
-并完成 stage mapping/filter、stage-conditioned velocity envelope、stage-conditioned slew、terminal alignment weight、deterministic deck heading、shortest-path quaternion SLERP、tilt feasibility、attitude-reference rate limit 与 relative angular velocity。Contact-point compensation 继续复用已有 adapter/math；Fixed-Stage M2 未修改。
-
-S2 验证：
+S3 已新增独立 task：
 
 ```text
-targeted regression = 65 passed
-full regression     = 155 passed + 21 subtests
-pre-S2 baseline     = 128 passed + 21 subtests
-added tests         = 27
-forbidden runtime dependency = 0
-CUDA tensor parity = PASS
+Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+22-D observation
+4-D action = 3-D deck-relative velocity + continuous stage
 ```
 
-**当前唯一允许的下一阶段是 S3：**
+并完成：caller-owned stage/filter state、stage-conditioned velocity/slew、现有 contact-point adapter 复用、terminal `q_vel -> alpha -> SLERP -> tilt -> rate-limit -> q_ref`、controller additive external-attitude path、relative-angular safe-contact migration、continuous reward boundary和 scratch PPO config。Frozen Direct / PhysicalDeckAttitude / Fixed-Stage M2 task source未修改。
+
+S3 验证：
 
 ```text
-Create independent Continuous-Stage PX4-compatible task
+targeted regression = 82 passed
+full regression     = 167 passed + 21 subtests
+pre-S3 baseline     = 155 passed + 21 subtests
+added S3 tests      = 12
+git diff --check    = PASS
+frozen task source diff = 0
 ```
 
-S3 之前仍禁止 Isaac smoke、PPO training 和 PX4 SITL。
+**当前唯一允许的下一阶段是 S4：**
+
+```text
+1-env deterministic Continuous-Stage smoke
+```
+
+S4 之前仍禁止 16-env GPU smoke、PPO training、64/256-env candidate 和 PX4 SITL。
 
 仍禁止：
 

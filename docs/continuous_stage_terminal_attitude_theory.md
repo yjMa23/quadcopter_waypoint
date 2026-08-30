@@ -1453,19 +1453,86 @@ CUDA parity         = PASS (executed, not skipped)
 forbidden dependency grep = 0
 ```
 
-实现继续复用现有 `px4_reference_adapter.py` 的 contact-point compensation；Fixed-Stage M2 action/reference semantics 和 `VectorizedPx4LikeController` 未修改。
+S2 实现继续复用现有 `px4_reference_adapter.py` 的 contact-point compensation；Fixed-Stage M2 action/reference semantics 未修改。
+
+---
+
+# 36. S3 task implementation evidence and next gate
+
+2026-08-30 已实现独立 Continuous-Stage task：
 
 ```text
-S0 Fixed-Stage baseline freeze = PASS
-S1 Theory Gate                 = PASS
-S2 Pure mathematical guidance = PASS
+source/quadcopter_waypoint/quadcopter_waypoint/tasks/direct/
+quadrotor_ship_landing_px4_continuous_stage/
+```
+
+冻结 task ID：
+
+```text
+Isaac-Quadcopter-ShipLanding-Px4ContinuousStage-Direct-v0
+```
+
+S3 将 22-D observation 保持不变，但把 index 15 从 historical `align_success` 迁移为 caller-owned filtered stage，并将 action 从 3-D relative velocity 扩展为：
+
+```text
+[a_t1, a_t2, a_n, a_stage]
+```
+
+Reference path 已落实为：
+
+```text
+stage filter
+-> stage-conditioned relative-velocity envelope
+-> relative-reference slew
+-> existing contact-point rigid-body compensation
+-> world/NED velocity reference
+```
+
+Terminal attitude path 已落实为：
+
+```text
+controller velocity math -> q_vel
+stage + signed deck-surface clearance -> alpha
+shortest quaternion SLERP toward q_deck
+35 deg tilt feasibility
+25 Hz attitude-reference rate limit
+-> q_ref
+-> existing 100 Hz attitude/rate/moment loops
+```
+
+`VectorizedPx4LikeController` 仅增加 backward-compatible additive API：默认 `compute(...)` 不传 external attitude reference 时继续原路径；新增测试验证默认路径与显式 `q_vel` 路径的 thrust/moment/body-rate numerical parity。
+
+新 task 的 safe-contact rotational metric 使用：
+
+```text
+omega_rel = omega_uav - omega_deck
+```
+
+Frozen PhysicalDeckAttitude / Fixed-Stage M2 success semantics 保持不变。新 reward 不使用 hard `can_land` / `align_success` 作为 landing-decision gate；尚未 preregister 的 stage/terminal-attitude/relative-angular smoothness coefficients 明确保持 0，只记录 raw metrics。
+
+S3 validation evidence：
+
+```text
+targeted regression = 82 passed
+full regression     = 167 passed + 21 subtests
+pre-S3 baseline     = 155 passed + 21 subtests
+added S3 tests      = 12
+git diff --check    = PASS
+frozen task source diff = 0
+```
+
+```text
+S0 Fixed-Stage baseline freeze        = PASS
+S1 Theory Gate                        = PASS
+S2 Pure mathematical guidance        = PASS
+S3 Independent Continuous-Stage task  = PASS
 ```
 
 下一阶段唯一允许工作：
 
 ```text
-S3
-Create independent Continuous-Stage PX4-compatible task
+S4
+1-env deterministic Continuous-Stage smoke
 ```
 
-本轮不自动进入 S3、Isaac smoke、PPO training 或 PX4 SITL。
+本轮不自动进入 S4、16-env GPU smoke、PPO training 或 PX4 SITL。
